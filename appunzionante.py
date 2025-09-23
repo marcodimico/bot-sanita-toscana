@@ -474,65 +474,20 @@ def health():
     return jsonify({'status': 'OK', 'message': 'Bot Sanità Toscana funzionante!'})
 
 
-@app.route('/force-load')
-def force_load():
-    """Endpoint per forzare il caricamento del PDF manualmente"""
-    try:
-        pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-        if not pdf_files:
-            return jsonify({
-                'status': 'error',
-                'message': 'Nessun PDF trovato nella cartella',
-                'files': os.listdir('.')
-            })
-
-        chunks = bot.carica_pdf(pdf_files[0])
-        return jsonify({
-            'status': 'success',
-            'message': f'PDF {pdf_files[0]} caricato con successo!',
-            'chunks': chunks
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Errore nel caricamento: {str(e)}'
-        })
-
-
-@app.route('/debug')
-def debug():
-    """Endpoint per debug - mostra file nella cartella"""
-    try:
-        files = os.listdir('.')
-        pdf_files = [f for f in files if f.endswith('.pdf')]
-        stats = bot.get_stats()
-
-        return jsonify({
-            'tutti_file': files,
-            'pdf_trovati': pdf_files,
-            'statistiche_db': stats,
-            'directory_corrente': os.getcwd()
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-
 # Inizializzazione: carica il PDF se presente
 def load_initial_pdf():
     """Carica automaticamente il PDF se presente nella directory"""
-    try:
-        pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-        print(f"🔍 File trovati nella cartella: {os.listdir('.')}")
-        print(f"🔍 PDF trovati: {pdf_files}")
-
-        if pdf_files:
+    # CERCA TUTTI I PDF NELLA CARTELLA
+    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
+    if pdf_files:
+        try:
+            # Prende il primo PDF trovato
             chunks = bot.carica_pdf(pdf_files[0])
             print(f"✅ PDF {pdf_files[0]} caricato automaticamente: {chunks} chunks")
-        else:
-            print("⚠️ Nessun PDF trovato nella cartella")
-            print(f"⚠️ Directory corrente: {os.getcwd()}")
-    except Exception as e:
-        print(f"❌ Errore nel caricamento automatico PDF: {e}")
+        except Exception as e:
+            print(f"❌ Errore nel caricamento automatico PDF: {e}")
+    else:
+        print("⚠️ Nessun PDF trovato nella cartella")
 
 
 if __name__ == '__main__':

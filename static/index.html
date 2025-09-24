@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -118,7 +119,6 @@
       const msg = input.value.trim();
       if (!msg) return;
 
-      // Riga utente
       const rowUser = document.createElement("div");
       rowUser.className = "row user";
       rowUser.innerHTML = `
@@ -126,10 +126,8 @@
         <div class="avatar user">👤</div>
       `;
       chat.appendChild(rowUser);
-
       chat.scrollTop = chat.scrollHeight;
 
-      // Richiesta al bot
       const response = await fetch("/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,8 +135,6 @@
       });
 
       const data = await response.json();
-
-      // Riga bot
       const rowBot = document.createElement("div");
       rowBot.className = "row bot";
       rowBot.innerHTML = `
@@ -146,9 +142,7 @@
         <div class="msg bot">${data.original_message ? data.original_message : JSON.stringify(data)}</div>
       `;
       chat.appendChild(rowBot);
-
       chat.scrollTop = chat.scrollHeight;
-
       input.value = "";
     }
   </script>

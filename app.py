@@ -21,8 +21,131 @@ class Bot:
         )
         self.chat_history = []
 
-    def carica_pdf(self, file_path):
-        """Carica PDF usando la tua logica esistente (semplificata per web)"""
+    def carica_documento(self, file_path):
+        """Carica documento TXT/CSV/PDF (ottimizzato per memoria limitata)"""
+        try:
+            # Determina tipo file
+            if file_path.endswith('.txt'):
+                return self._carica_txt(file_path)
+            elif file_path.endswith('.csv'):
+                return self._carica_csv(file_path)
+            elif file_path.endswith('.pdf'):
+                return self._carica_pdf_original(file_path)
+            else:
+                raise Exception(f"Formato non supportato: {file_path}")
+
+        except Exception as e:
+            raise Exception(f"Errore durante il caricamento: {str(e)}")
+
+    def _carica_txt(self, file_path):
+        """Carica file TXT - molto più veloce e leggero"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                contenuto = f.read()
+
+            # Pulisci chunks esistenti
+            existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
+            if existing_ids:
+                self.collection.delete(ids=existing_ids)
+
+            # Split in chunks
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=800,
+                chunk_overlap=100,
+                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
+                keep_separator=True
+            )
+
+            chunks = splitter.split_text(contenuto)
+
+            # Prepara per inserimento
+            documents = []
+            metadatas = []
+            ids = []
+
+            for i, chunk in enumerate(chunks):
+                if len(chunk.strip()) < 50:
+                    continue
+
+                documents.append(chunk.strip())
+                metadatas.append({
+                    "source": os.path.basename(file_path),
+                    "full_path": file_path,
+                    "chunk_id": i,
+                    "chunk_length": len(chunk),
+                    "upload_date": datetime.now().isoformat(),
+                    "first_words": chunk[:100]
+                })
+                ids.append(f"{os.path.basename(file_path)}_{i}")
+
+            # Inserimento batch ridotto
+            batch_size = 20
+            for i in range(0, len(documents), batch_size):
+                try:
+                    self.collection.add(
+                        documents=documents[i:i + batch_size],
+                        metadatas=metadatas[i:i + batch_size],
+                        ids=ids[i:i + batch_size]
+                    )
+                except Exception as e:
+                    print(f"Errore batch {i}: {e}")
+
+            return len(documents)
+
+        except Exception as e:
+            raise Exception(f"Errore TXT: {str(e)}")
+
+    def _carica_csv(self, file_path):
+        """Carica file CSV - converte in testo per ricerca"""
+        try:
+            import csv
+
+            # Pulisci chunks esistenti
+            existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
+            if existing_ids:
+                self.collection.delete(ids=existing_ids)
+
+            documents = []
+            metadatas = []
+            ids = []
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+
+                for i, row in enumerate(reader):
+                    # Converte riga CSV in testo ricercabile
+                    testo = " | ".join([f"{k}: {v}" for k, v in row.items() if v])
+
+                    if len(testo.strip()) < 20:
+                        continue
+
+                    documents.append(testo)
+                    metadatas.append({
+                        "source": os.path.basename(file_path),
+                        "full_path": file_path,
+                        "chunk_id": i,
+                        "chunk_length": len(testo),
+                        "upload_date": datetime.now().isoformat(),
+                        "row_number": i + 1
+                    })
+                    ids.append(f"{os.path.basename(file_path)}_row_{i}")
+
+            # Inserimento batch
+            batch_size = 50  # CSV più leggero, batch maggiori
+            for i in range(0, len(documents), batch_size):
+                self.collection.add(
+                    documents=documents[i:i + batch_size],
+                    metadatas=metadatas[i:i + batch_size],
+                    ids=ids[i:i + batch_size]
+                )
+
+            return len(documents)
+
+        except Exception as e:
+            raise Exception(f"Errore CSV: {str(e)}")
+
+    def _carica_pdf_original(self, file_path):
+        """Metodo PDF originale (mantenuto per compatibilità)"""
         try:
             loader = PyPDFLoader(file_path)
             pages = loader.load()
@@ -36,10 +159,10 @@ class Bot:
                 page.page_content = content
                 processed_pages.append(page)
 
-            # Splitter ottimizzato (identico al tuo)
+            # Splitter ottimizzato per memoria limitata
             splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1200,
-                chunk_overlap=200,
+                chunk_size=800,  # Ridotto per risparmiare memoria
+                chunk_overlap=100,  # Ridotto overlap
                 separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
                 keep_separator=True
             )
@@ -71,14 +194,18 @@ class Bot:
                 })
                 ids.append(f"{os.path.basename(file_path)}_{i}")
 
-            # Inserimento batch
-            batch_size = 100
+            # Inserimento batch ridotto per memoria limitata
+            batch_size = 20  # Ridotto da 100 a 20
             for i in range(0, len(documents), batch_size):
-                self.collection.add(
-                    documents=documents[i:i + batch_size],
-                    metadatas=metadatas[i:i + batch_size],
-                    ids=ids[i:i + batch_size]
-                )
+                try:
+                    self.collection.add(
+                        documents=documents[i:i + batch_size],
+                        metadatas=metadatas[i:i + batch_size],
+                        ids=ids[i:i + batch_size]
+                    )
+                except Exception as e:
+                    print(f"Errore batch {i}: {e}")
+                    # Continua con il prossimo batch
 
             return len(documents)
 
@@ -476,26 +603,63 @@ def health():
 
 @app.route('/force-load')
 def force_load():
-    """Endpoint per forzare il caricamento del PDF manualmente"""
+    """Carica automaticamente TXT, CSV o PDF"""
     try:
+        # Cerca file supportati (priorità: TXT > CSV > PDF)
+        txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
+        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
         pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-        if not pdf_files:
+
+        file_to_load = None
+        if txt_files:
+            file_to_load = txt_files[0]
+        elif csv_files:
+            file_to_load = csv_files[0]
+        elif pdf_files:
+            file_to_load = pdf_files[0]
+
+        if not file_to_load:
             return jsonify({
                 'status': 'error',
-                'message': 'Nessun PDF trovato nella cartella',
+                'message': 'Nessun file TXT, CSV o PDF trovato',
                 'files': os.listdir('.')
             })
 
-        chunks = bot.carica_pdf(pdf_files[0])
-        return jsonify({
-            'status': 'success',
-            'message': f'PDF {pdf_files[0]} caricato con successo!',
-            'chunks': chunks
-        })
+        # Caricamento con timeout
+        import signal
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Caricamento timeout")
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(25)
+
+        try:
+            chunks = bot.carica_documento(file_to_load)
+            signal.alarm(0)
+
+            return jsonify({
+                'status': 'success',
+                'message': f'{file_to_load} caricato con successo!',
+                'chunks': chunks,
+                'tipo': file_to_load.split('.')[-1].upper()
+            })
+        except TimeoutError:
+            return jsonify({
+                'status': 'timeout',
+                'message': 'Caricamento interrotto per timeout.'
+            })
+        except Exception as e:
+            signal.alarm(0)
+            return jsonify({
+                'status': 'error',
+                'message': f'Errore: {str(e)}'
+            })
+
     except Exception as e:
         return jsonify({
             'status': 'error',
-            'message': f'Errore nel caricamento: {str(e)}'
+            'message': f'Errore generale: {str(e)}'
         })
 
 
@@ -504,11 +668,15 @@ def debug():
     """Endpoint per debug - mostra file nella cartella"""
     try:
         files = os.listdir('.')
+        txt_files = [f for f in files if f.endswith('.txt')]
+        csv_files = [f for f in files if f.endswith('.csv')]
         pdf_files = [f for f in files if f.endswith('.pdf')]
         stats = bot.get_stats()
 
         return jsonify({
             'tutti_file': files,
+            'txt_trovati': txt_files,
+            'csv_trovati': csv_files,
             'pdf_trovati': pdf_files,
             'statistiche_db': stats,
             'directory_corrente': os.getcwd()
@@ -517,26 +685,43 @@ def debug():
         return jsonify({'error': str(e)})
 
 
-# Inizializzazione: carica il PDF se presente
 def load_initial_pdf():
-    """Carica automaticamente il PDF se presente nella directory"""
+    """Carica automaticamente TXT, CSV o PDF se presente"""
     try:
+        # Priorità: TXT > CSV > PDF
+        txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
+        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
         pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-        print(f"🔍 File trovati nella cartella: {os.listdir('.')}")
-        print(f"🔍 PDF trovati: {pdf_files}")
 
-        if pdf_files:
-            chunks = bot.carica_pdf(pdf_files[0])
-            print(f"✅ PDF {pdf_files[0]} caricato automaticamente: {chunks} chunks")
+        all_files = os.listdir('.')
+        print(f"🔍 File trovati: {all_files}")
+        print(f"📝 TXT: {txt_files}")
+        print(f"📊 CSV: {csv_files}")
+        print(f"📄 PDF: {pdf_files}")
+
+        file_to_load = None
+        if txt_files:
+            file_to_load = txt_files[0]
+            print(f"✅ Caricamento TXT: {file_to_load}")
+        elif csv_files:
+            file_to_load = csv_files[0]
+            print(f"✅ Caricamento CSV: {file_to_load}")
+        elif pdf_files:
+            file_to_load = pdf_files[0]
+            print(f"✅ Caricamento PDF: {file_to_load}")
+
+        if file_to_load:
+            chunks = bot.carica_documento(file_to_load)
+            print(f"🎉 {file_to_load} caricato: {chunks} chunks")
         else:
-            print("⚠️ Nessun PDF trovato nella cartella")
-            print(f"⚠️ Directory corrente: {os.getcwd()}")
+            print("⚠️ Nessun file TXT, CSV o PDF trovato")
+
     except Exception as e:
-        print(f"❌ Errore nel caricamento automatico PDF: {e}")
+        print(f"❌ Errore caricamento automatico: {e}")
 
 
 if __name__ == '__main__':
-    # Carica PDF all'avvio
+    # Carica documento all'avvio
     load_initial_pdf()
 
     port = int(os.environ.get('PORT', 5000))

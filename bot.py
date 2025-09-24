@@ -1,16 +1,15 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import tiktoken
+import tiktoken, os
 
 class Query(BaseModel):
     message: str
 
 def create_bot_app() -> FastAPI:
     app = FastAPI()
-
-    @app.get("/")
-    def root():
-        return {"message": "Bot attivo"}
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
     @app.post("/query")
     def process_query(query: Query):

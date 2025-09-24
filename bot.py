@@ -14,12 +14,15 @@ def create_bot_app() -> FastAPI:
 
     @app.post("/query")
     def process_query(query: Query):
-        # Tokenizza il messaggio usando tiktoken
-        tokens = tiktoken.get_encoding("cl100k_base").encode(query.message)
-        return {
-            "original_message": query.message,
-            "token_count": len(tokens),
-            "tokens": tokens
-        }
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+            tokens = encoding.encode(query.message)
+            return {
+                "original_message": query.message,
+                "token_count": len(tokens),
+                "tokens": tokens
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
     return app

@@ -2,11 +2,9 @@ from flask import Flask, request, jsonify, render_template_string
 import requests
 import os
 import chromadb
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+import pypdf
 from datetime import datetime
-import threading
-import time
+import re
 
 app = Flask(__name__)
 
@@ -48,15 +46,8 @@ class Bot:
             if existing_ids:
                 self.collection.delete(ids=existing_ids)
 
-            # Split in chunks
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=800,
-                chunk_overlap=100,
-                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
-                keep_separator=True
-            )
-
-            chunks = splitter.split_text(contenuto)
+            # Split in chunks SENZA Langchain - metodo manuale
+            chunks = self._split_text(contenuto, chunk_size=800, overlap=100)
 
             # Prepara per inserimento
             documents = []
@@ -145,41 +136,34 @@ class Bot:
             raise Exception(f"Errore CSV: {str(e)}")
 
     def _carica_pdf_original(self, file_path):
-        """Metodo PDF originale (mantenuto per compatibilità)"""
+        """Carica PDF SENZA Langchain - usa pypdf diretto"""
         try:
-            loader = PyPDFLoader(file_path)
-            pages = loader.load()
+            # Usa pypdf direttamente
+            with open(file_path, 'rb') as f:
+                reader = pypdf.PdfReader(f)
 
-            # Preprocessing leggero (come nel tuo codice)
-            processed_pages = []
-            for page in pages:
-                content = page.page_content
-                content = ' '.join(content.split())
-                content = content.replace('\n\n\n', '\n\n')
-                page.page_content = content
-                processed_pages.append(page)
-
-            # Splitter ottimizzato per memoria limitata
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=800,  # Ridotto per risparmiare memoria
-                chunk_overlap=100,  # Ridotto overlap
-                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
-                keep_separator=True
-            )
-            chunks = splitter.split_documents(processed_pages)
+                # Estrai tutto il testo
+                full_text = ""
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        full_text += text + "\n\n"
 
             # Pulisci chunks esistenti
             existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
             if existing_ids:
                 self.collection.delete(ids=existing_ids)
 
-            # Inserisci chunks (identico al tuo codice)
+            # Split in chunks manualmente
+            chunks = self._split_text(full_text, chunk_size=800, overlap=100)
+
+            # Prepara per inserimento
             documents = []
             metadatas = []
             ids = []
 
             for i, chunk in enumerate(chunks):
-                chunk_text = chunk.page_content.strip()
+                chunk_text = chunk.strip()
                 if len(chunk_text) < 50:
                     continue
 
@@ -194,8 +178,8 @@ class Bot:
                 })
                 ids.append(f"{os.path.basename(file_path)}_{i}")
 
-            # Inserimento batch ridotto per memoria limitata
-            batch_size = 20  # Ridotto da 100 a 20
+            # Inserimento batch ridotto
+            batch_size = 20
             for i in range(0, len(documents), batch_size):
                 try:
                     self.collection.add(
@@ -205,12 +189,67 @@ class Bot:
                     )
                 except Exception as e:
                     print(f"Errore batch {i}: {e}")
-                    # Continua con il prossimo batch
 
             return len(documents)
 
         except Exception as e:
-            raise Exception(f"Errore durante il caricamento: {str(e)}")
+            raise Exception(f"Errore PDF: {str(e)}")
+
+    def _split_text(self, text, chunk_size=800, overlap=100):
+        """Split testo manualmente SENZA Langchain"""
+        if not text or len(text) < chunk_size:
+            return [text] if text else []
+
+        chunks = []
+        separators = ["\n\n\n", "\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " "]
+
+        # Prova a dividere usando i separatori in ordine di preferenza
+        current_chunks = [text]
+
+        for separator in separators:
+            new_chunks = []
+
+            for chunk in current_chunks:
+                if len(chunk) <= chunk_size:
+                    new_chunks.append(chunk)
+                    continue
+
+                # Dividi il chunk usando il separatore corrente
+                parts = chunk.split(separator)
+                current_chunk = ""
+
+                for part in parts:
+                    if len(current_chunk + separator + part) <= chunk_size:
+                        if current_chunk:
+                            current_chunk += separator + part
+                        else:
+                            current_chunk = part
+                    else:
+                        if current_chunk:
+                            new_chunks.append(current_chunk)
+                            # Aggiungi overlap
+                            if len(current_chunk) > overlap:
+                                current_chunk = current_chunk[-overlap:] + separator + part
+                            else:
+                                current_chunk = part
+                        else:
+                            # Parte troppo lunga, dividila forzatamente
+                            while len(part) > chunk_size:
+                                new_chunks.append(part[:chunk_size])
+                                part = part[chunk_size - overlap:]
+                            current_chunk = part
+
+                if current_chunk:
+                    new_chunks.append(current_chunk)
+
+            current_chunks = new_chunks
+
+            # Se tutti i chunks sono della dimensione giusta, fermati
+            if all(len(chunk) <= chunk_size for chunk in current_chunks):
+                break
+
+        # Filtra chunks vuoti o troppo corti
+        final_chunks = [chunk.strip() for chunk in current_chunks if chunk.strip() and len(chunk.strip()) >= 50]
 
     def query_con_groq(self, domanda, n_results=10):
         """Query usando Groq invece di Ollama (mantiene la tua logica di ricerca)"""

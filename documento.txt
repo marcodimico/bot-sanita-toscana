@@ -46,9 +46,6 @@ appartenenza.
 Gestione Escalation(Problemi): 
 Procedura: Doppio ticket con form preimpostato"Escalation Aurora". 
 Inoltro Email: hd.medicale@exprivia.com(CC: ict-scotte-sanita@ao-siena.toscana.it). 
-
-
-
 SLA: Non sono impostati SLA. 
 Fuori Orario: Chiamare anche il reperibile: 366 9011741. 
 Nota: Se il problema riguarda la lettura delle nuove carte operatore(solo in Aurora), scalare i 
@@ -97,9 +94,6 @@ Se il problema sul client non viene risolto, contattare l'assistenza Dedalus e i
 al referente ICT. Comunicare la risoluzione al referente ICT. 
 Problemi sul server di Argos: 
 Il server è raggiungibile?(comando"ping argos.intra.asl9"). 
-
-
-
 Il problema riguarda più postazioni?. 
 Se il server non è raggiungibile o il problema riguarda più postazioni, contattare l'assistenza 
 e inviare una mail al referente ICT. Comunicare la risoluzione al referente ICT. 
@@ -148,9 +142,6 @@ Questo rende ArubaSign non più disponibile per gli altri utenti del computer.
 Soluzione: Per aggiornare, disinstallare la vecchia versione e installare la nuova fornita per i 
 PC di locazione(Ver. 22.0.7). 
 Problemi Possibili e Soluzioni: 
-
-
-
 Data e Ora di firma non corrette: 
 L'ora indicata è quella del meridiano di Greenwich(UTC), mentre l'ora solare italiana è 
 UTC+1(UTC+2 in estate). 
@@ -199,9 +190,6 @@ Carla Fioravanti si occupa anche del reset password.
 Fornitore: Dalmatec(assistenza: assistenza@dalmatec.it, Tel:+39 0572 617907). 
 Da utilizzare per problemi SW generalizzati. 
 Referenti: 
-
-
-
 Referente ESTAR: Andrea Bartoloni(email: a.bartoloni@estar.toscana.it, Cell: 334 1143287, 
 Tel: 0577 585219). 
 Referenti AOUS: Carla Fioravanti. 
@@ -250,9 +238,6 @@ elena.scarselli@estar.toscana.it.
 13 CUP 2.0 
 Nome Applicativo/Sistema: CUP 2.0 
 Fornitore: Engineering 
-
-
-
 Assistenza: 
 Email: hd_cup20@eng.it 
 Telefono: 800 101 106(codice assistenza 8080#) 
@@ -299,11 +284,6 @@ Funzionalità: Per consentire le stampe dal Pronto Soccorso(PS).
 Requisito: Calamaio deve essere aperto. 
 Installazione/Configurazione Calamaio: 
 Deployato su tutte le macchine richieste.​
-​
-​
-
-
-
 Se assente, scaricare da: 
 https://drive.google.com/drive/folders/1CQMezyxRI_2yuj9jaD66pfVGslePAPP8?usp=drive_li
 nk. 
@@ -351,9 +331,6 @@ Nome Applicativo/Sistema: GRAY DETECTOR(RDIM REGIONALE- Radiation Dose Index
 Monitoring) 
 Descrizione: Software di monitoraggio dose regionale che traccia, registra e analizza le 
 esposizioni dei pazienti agli esami radiologici. 
-
-
-
 Alimentazione Dati: Alimentato dai sistemi RDIM Aziendali(es. Dosewatch di GE, gestito 
 inoltrandolo ad ACS). 
 Finalità: Registrazione e archiviazione anonima dei dati dosimetrici degli esami per finalità 
@@ -402,9 +379,6 @@ L'Helpdesk interno AOUS(h24) scala al servizio Ebit tramite telefonata/mail dopo
 filtro. 
 CC obbligatorio: ict-scotte-sanita@ao-siena.toscana.it. 
 Richieste per Modifiche Anagrafiche/ Riconciliazioni/ Spostamento Immagini su PACS: 
-
-
-
 Il reparto deve inviare via mail il modulo compilato a service@ebit.it. 
 In caso di chiamata notturna al 1510 per questa problematica, comunicare la modalità agli 
 utenti e contattare il reperibile Ebit per avvisarlo. 
@@ -452,10 +426,6 @@ Tecnici On Site:
 Filippo Mazzuccato: 333-4181846. 
 Juri Sardi: 334-6204504. 
 Stefano Brogi: 345-5986801. 
- 
-
-
-
 26 AREZZO- RICHIESTE NUOVI TELEFONI/LINEE 
 Tipo di Richiesta: Nuovi apparecchi telefonici, interni nuovi, abilitazioni a chiamate verso 
 cellulari/nazionali, segreterie telefoniche. 
@@ -503,11 +473,7 @@ Moduli: I moduli per la richiesta sono presenti in Intranet:"Per i dipendenti"->
 Procedura: 
 Prima azione: Chiedere all'utente di rispondere alla mail di apertura del ticket con 
 l'autorizzazione scritta del suo superiore. 
-Escalation Successiva: Fare escalation a Fastweb. 
-
-
-
- 
+Escalation Successiva: Fare escalation a Fastweb.  
 30 AREZZO- TELEFONIA Casa della Salute 
 Situazione: Alla Casa della Salute di via XXV Aprile, rispondono al telefono al CCE. Si 
 loggano con il telefono fisso e poi utilizzano Finesse. 
@@ -554,9 +520,6 @@ Categorie: Già impostate nel Form.
 SLA(INTELLICARE): 
 ALTO(2HS): Guasto gravità 1 – Alta criticità: Fermo operativo del contingente tablet o relativi 
 processi. 
-
-
-
 MEDIO(6HS): Guasto gravità 2 – Media criticità: Guasto generalizzato su buona parte dei 
 tablet(es. 30% della dotazione). 
 BASSO(24HS): Guasto gravità 3 – Bassa criticità: Assistenza utenza o malfunzionamento di 
@@ -605,9 +568,6 @@ Escalation Elettromedicali ALL in One--> Escalation Var Group.
 Escalation RisPacs--> Escalation RisPacs. 
 Escalation 116117 Mobidoc--> Escalation Beta80. 
 Escalation WinSap Engineering--> Escalation Engineering. 
-
-
-
 Collegamento Ticket: Collegare i 2 ticket. 
 Stato Ticket: 
 Il ticket pdl va messo in"Attesa fornitori terzi". 
@@ -654,9 +614,6 @@ Fuori Orario:
 Deve SOLO essere chiamato il Numero Verde 800101106. 
 Codice 2931 per ASL SUDEST. 
 Codice 2935 per AOUS. 
-
-
-
 Dalle 18 alle 8 e nei giorni Sabato, Domenica e Festivi, aprire il ticket solo tramite numero 
 verde, senza inoltrare la mail. Aprire comunque il doppio ticket e chiuderlo subito, riportando 
 nel ticket pdl il numero di chiamata telefonica("inoltrata chiamata n. xxx a tecnico reperibile"). 
@@ -705,9 +662,6 @@ Categoria Servizio: Software.
 Creazione Doppio Ticket(Escalation): 
 Utilizzare il form preimpostato. 
 Richiedente: ESCALATION GPI. 
-
-
-
 Le categorie sono già impostate. 
 Scegliere la priorità più adeguata e collegare al ticket padre. 
 Stato Ticket: 
@@ -756,9 +710,6 @@ Utilizzare il form preimpostato.
 Richiedente: ESCALATION FASTWEB. 
 Le categorie sono già impostate. 
 Scegliere la priorità più adeguata e collegare al ticket padre. 
-
-
-
 Stato Ticket: 
 Il ticket pdl viene messo in"Attesa fornitori terzi". 
 Il ticket di Escalation resta su"Aperto". 
@@ -807,9 +758,6 @@ Scegliere la SOTTOCATEGORIA con la Ditta a seconda del problema(ACS Service o
 WETECHS- non usare mai GMED). 
 Copiare il corpo del ticket pdl. 
 SLA(Tempo di presa in carico): 
-
-
-
 Gravità 1(guasti bloccanti): Entro 15 minuti solari consecutivi. 
 Gravità 2(guasti non bloccanti): Entro il primo giorno solare consecutivo. 
 SLA(Tempo di risoluzione del guasto): 
@@ -858,9 +806,6 @@ Sottocategoria: Winsap.
 Categoria Servizio: Software. 
 Creazione Doppio Ticket(Escalation): 
 Utilizzare il form preimpostato:"ESCALATION WINSAP ENGINEERING". 
-
-
-
 Richiedente: Escalation Engineering. 
 Le categorie sono già impostate. 
 PRIORITÀ – SLA: Non si conoscono gli SLA, quindi lasciare"NON SPECIFICATO". 
@@ -909,9 +854,6 @@ Per AOUS: Inviare mail a uffpres@ao-siena.toscana.it e chiudere il ticket(riport
 "inoltrato all'ufficio AOUS per la gestione"). 
 I dipendenti possono anche telefonare agli uffici del personale: 0577585533(int. 5533), 
 0577585538(int. 5538). 
-
-
-
 Problemi Infrastrutturali: 
 Se il problema è infrastrutturale e non puramente software, Dedalus/Gpi si interfaccia con la 
 struttura ospitante SCT. 
@@ -960,9 +902,6 @@ Email: agent.estar@acs-service.it.
 Telefono(Orario lavorativo 08:30-18:00): 800.228233 o 011.9329000. 
 Telefono(Fuori orario lavorativo): 329.8378573. 
 Per Robottini Masterizzatori: Mettere in CC anche serviceportal@gmed.it. 
-
-
-
 Telefono(Festivi e notturni 17:30-08:30): 0577 1915113(PIN UNICO: 5897). 
 Richieste di modifica di dati o immagini(es. anagrafica errata): 
 In carico ai system administrator aziendali, non passano per la manutenzione informatica. 
@@ -1011,9 +950,6 @@ Se il tecnico in loco non risolve, il ticket deve essere scalato al fornitore AR
 Orario: Lun-Ven 07:00-19:00, Sab 07:00-13:00. 
 Telefono: 02 96457497. 
 Email: helpdesk@artexe.com, assistenza@mapsgroup.it. 
-
-
-
 CC: ict-scotte-hd-client@ao-siena-toscana.it. 
 Artexe gestirà poi il problema anche con l'altro fornitore. 
 Allegata la lista dei Totem AOUS in assistenza diretta(con primo passaggio al tecnico): PPU, 
@@ -1061,10 +997,7 @@ riconnessione.
 Non potendo verificare la connessione della torretta(non ha lucine visibili e cavi OK), scalare 
 il ticket a hd2/sistemistica per verificare che la"torretta" sia raggiungibile. 
 Se la torretta non va in rete(no etichette) e la porta dello switch non è in errore: Dire 
-all'utente che è utile dissociare TUTTI i tablet(logoff) dalla relativa torretta dell'ambulatorio 
-
-
-
+all'utente che è utile dissociare TUTTI i tablet(logoff) dalla relativa torretta dell'ambulatorio
 specifico, e poi rifare accesso alla torretta di competenza. Pregarli di fare attenzione a 
 collegarsi alla torretta corretta. 
 Se la torretta va in rete e l'utente ha verificato ogni tablet con la sua torretta/stampante, ma il 
@@ -1111,10 +1044,7 @@ password ricevuta(se non fa questo passaggio, non apre la posta).
 Errore nel cambio password: Verificare che non siano stati inseriti nomi o caratteri non 
 accettati dal sistema(non deve essere password precedente, contenere nome/cognome 
 utenza, 8 caratteri min. con maiuscole/minuscole/numeri e solo determinati caratteri speciali 
-come da istruzioni). 
-
-
-
+come da istruzioni).
 Solo se il cambio password è inibito o ci sono altri problemi sulla mail Zimbra: Scalare a 
 mailman. 
 Gestione delle Liste: 
@@ -1162,11 +1092,7 @@ Connessione).
 IMPORTANTE: Per aprire il ticket è l'IMEI(per controllo remoto). 
 Se il Tablet è spento: Farsi dare l'inventario del dispositivo(sotto la batteria) per risalire 
 all'IMEI. 
-Sito di Login(per primo accesso, cambio/reset psw): https://cartella-nea.uslcentro.toscana.it. 
-
-
-
- 
+Sito di Login(per primo accesso, cambio/reset psw): https://cartella-nea.uslcentro.toscana.it.  
 56 NEA 116117- Problemi Hardware Tablet 
 Nome Applicativo/Sistema: NEA 116117- Tablet Hardware 
 Problemi HW: Tablet non funzionante, non si accende, rotto, caricabatteria non funzionante, 
@@ -1213,9 +1139,6 @@ telefoniamobile@uslsudest.toscana.it.
 Oppure chiamare il 338 5376301. 
 Mail presidiata in diretta: Lun-Ven 07:30-15:12(ufficio). 
 Sab, Dom e festivi: 07:30-19:30(reperibilità). 
-
-
-
 Le operazioni di blocco SIM sono quasi in diretta, le altre attività non hanno SLA definiti(al 
 più ASAP). 
 58 NEA 116117- Problemi Software 
@@ -1264,9 +1187,6 @@ NON CRITICI in SudEst:(almeno 2 per reparto).
 Procedura Ticket: 
 Dopo l'apertura del ticket, passare a Planner per una prima verifica del tecnico. 
 Fuori Orario(se critico): Passare direttamente al Reperibile. 
-
-
-
 Il tecnico verifica il guasto e, se necessario, ripassa a Planner per attivare l'assistenza 
 VarGroup(con doppio ticket di escalation, vedi soluzione n.29). 
 Utilizzare lo stesso form degli Elettromedicali All in One(specificando il modello). 
@@ -1314,10 +1234,6 @@ Installare con privilegi dell'utente che deve firmare(scrive sotto%appdata%, non
 installazione con privilegi amministratore altrimenti non viene vista dall'utente). 
 Problemi con Nuova CA: Segnalare il problema al fornitore del servizio a cui si tenta di 
 accedere per far adeguare la procedura alla nuova CA presente nella carta. 
-
-
-
-​
 63 DEDALUS- Reperibilità 
 Ambito: Assistenza agli applicativi gestiti da Dedalus(es: DNLAB, DNWEB, DNA, Ormaweb, 
 E-Prescription). 
@@ -1365,9 +1281,6 @@ Nome Progetto: Migrazione Piattaforma Protocollo e Atti(Supporto per avvio nuova
 procedura Protocollo) 
 Affiancamento On Site(tecnico Project presso ufficio protocollo): 
 Martedì 18/03/2025: 08:00-15:00. 
-
-
-
 Mercoledì 19/03/2025: 08:00-15:00. 
 Giovedì 20/03/2025: 08:00-15:00. 
 Control Room ESTAR(18/03- 03/04 compresi): 
@@ -1415,9 +1328,6 @@ Se non funziona ancora(o lettore onboard):
 Passare al tecnico in sede ed eventualmente sostituire il lettore. 
 Indicare nel ticket che le istruzioni fornite sono state eseguite senza successo. 
 69 Prescrizione Elettronica- problema di trasporto paziente 
-
-
-
 Problema: Errore E104 nella Prescrizione Elettronica per organizzare il trasporto di un 
 paziente(domiciliato ma non residente in Toscana). 
 Causa: Le ricette di trasporti sono gestite solo per i pazienti con residenza in Regione 
@@ -1465,9 +1375,6 @@ Contatti Werfen:
 Numero verde(Lun-Ven 08:00-17:30): 800086881. 
 Reperibilità: 800259630. 
 Competenza Interna: Solitamente se ne occupa HD2. 
-
-
-
 Problemi di Trasmissione Dati(con altri applicativi): Ricordarsi di fare le dovute escalation 
 (es. verso Dedalus). 
 75 GRU WHR TIME- problemi di accesso 
@@ -1516,9 +1423,6 @@ Ambito: Problemi con Java per aprire applicazioni(dalla provincia di Arezzo).
 Soluzione: 
 1. Andare in c:\windows\sun\java\deployment. 
 2. Aprire il file deployment.config con il blocco note. 
-
-
-
 3. Se nel file è presente il proxy, cancellare le righe evidenziate in giallo. 
 4. Salvare il file(se non amministratore potrebbe chiedere password). 
 5. Riavviare il PC. 
@@ -1566,10 +1470,6 @@ CNS non aggiornata a certificati 2048.
 Ci sono due certificati(nominativo e legato al codice fiscale), entrambi devono essere 
 aggiornati a 2048. Se non lo fossero, è necessario sostituire la carta. 
 Al primo utilizzo, la carta deve essere registrata sul portale SistemaTS. 
- 
-
-
-
 82 STAMPANTE HP LASERJET 404DN- FULL RESET 
 Ambito: Errori obsoleti della stampante HP LASERJET 404DN che ne impediscono il 
 corretto funzionamento. 
@@ -1617,10 +1517,6 @@ Problema: L'utente non riesce a stampare(da PC fisico e/o da dentro Horizon) e l
 stampante non è più riconosciuta dal PC o risulta offline. 
 Soluzione: VERIFICARE SEMPRE che non siano abilitate le voci USB all'interno di Horizon 
 (queste impediscono il collegamento USB tra stampante e PC). 
- 
-
-
-
 87 PROBLEMA STAMPANTE HP LASERJET Pro 4002Dn 
 Problema: La stampante non risulta presente tra quelle installate nel PC. 
 Causa: Bug sulla gestione della stampante Hp Laserjet Pro 4002dn sul sistema operativo 
@@ -1669,9 +1565,6 @@ Accesso: Con password LDAP e nome di dominio scritto in maiuscolo.
 90 USLSUDEST- GUASTI HW TELEFONI CISCO 
 Ambito: Guasti HW dei telefoni Cisco in USLSUDEST. 
 Procedura: 
-
-
-
 1. HD1 passa al tecnico. 
 2. Procedura per i tecnici(consigliata per 3+ telefoni da sostituire): 
 Il telefono da restituire deve comprendere i suoi pezzi fondamentali(anche se rotti): 
@@ -1715,14 +1608,10 @@ Competenza: NON DI NOSTRA COMPETENZA(comunicazione mail di Magnani del
 13/02/2025). 
 Procedura(se arrivano chiamate): Riferire all'utente che qualsiasi guasto o 
 malfunzionamento(Dell o Intercomp) va segnalato all'HelpLine. 
-HelpLine: Attivo dal lunedì al venerdì. 
- 
+HelpLine: Attivo dal lunedì al venerdì.  
 94 SISN- PORTALE REGISTRO IMPIANTI PROTESICI MAMMARI 
 Nome Applicativo/Sistema: SISN- Portale Registro Impianti Protesici Mammari 
 Contatti Assistenza(H24, 7 giorni su 7):Telefono: Numero Verde 800688681. 
-
-
-
 Email: servicedesk.mds@medilifegroupspa.com. 
 Richieste Informazioni su Utilizzo Piattaforma: 
 Scrivere all'indirizzo email: rnpm@sanita.it. 
@@ -1771,9 +1660,6 @@ Tipo: Applicazione web.
 Link: 
 https://118-ar.uslsudest.toscana.it/. 
 https://emmaweb.uslsudest.toscana.it/. 
-
-
-
 AOUS deve accedere ad entrambi, a seconda che i pazienti siano trasportati dal 118 di 
 Siena-Grosseto(la maggioranza) o dal 118 di Arezzo. 
 Fornitore: Beta80(email: helpdesk@beta80group.it). 
@@ -1822,9 +1708,6 @@ In AOUS occorre fare login con utenza personale per accedere a internet.
 Accesso Internet(Utenza Generica): Se la postazione è attivata su utenza generica, la 
 navigazione internet è accessibile solo con utenza"navigatore" che immetterà le proprie 
 credenziali alla richiesta di firewall authentication. 
-
-
-
 È stato richiesto un link in applicazioni aziendali"Accesso internet" per semplificare, da 
 utenza generica, se l'utente non ha ricevuto il messaggio di autenticazione. 
 Il captive portal è attivo da tempo in AOUS. 
@@ -1873,9 +1756,6 @@ Richiesta: Utenti dalle Scotte che richiedono"l'apertura della porta 993 per l'a
 zimbra su thunderbird e l'apertura della porta 143 per la comunicazione con mbox.ced.aos". 
 Scopo: Per il backup della mail quando raggiunge i 30 GB di spazio. 
 Nota: Dovrà anche essere creata l'utenza di mail esterno squirrelmail. 
-
-
-
 Procedura: 
 Prendere il ticket. 
 Comunicare all'utente che non è un'operazione normalmente prevista e quindi non è 
@@ -1923,9 +1803,6 @@ Errore nel cambio password: Verificare che non siano stati inseriti nomi o carat
 accettati dal sistema(non deve essere password precedente, contenere nome/cognome 
 utenza, 8 caratteri min. con maiuscole/minuscole/numeri e solo determinati caratteri speciali 
 come da istruzioni). 
-
-
-
 Solo se il cambio password è inibito o ci sono altri problemi sulla mail Zimbra: Scalare a 
 mailman. 
 Problemi all'interno della Posta: L'utente deve aprire segnalazione in SuperS. 
@@ -1973,9 +1850,6 @@ Possono eventualmente provare a richiederlo internamente se lo comprano.
 Nome Applicativo/Sistema: USLSUDEST- Nuova WIFI 
 Autenticazione: Avviene contestualmente all'inserimento delle credenziali di login di 
 Windows. 
-
-
-
 Trasparenza: I PC di Siena, Grosseto e Arezzo abilitati potranno spostarsi e utilizzare la rete 
 WiFi in modo trasparente. 
 Configurazioni: Le nuove configurazioni vengono iniettate automaticamente sui PC dai 
@@ -2024,9 +1898,6 @@ Hospice, ospedale di comunità, cure intermedie.
 Ambito: WiFi presso la sede del Centro direzionale di Siena- Piazza Rosselli. 
 Disattivazione: A partire da lunedì 14 ottobre 2024, la WiFi"AUSL7-ACD-W01" verrà 
 disattivata. 
-
-
-
 WiFi Attiva: Rimarrà attiva la sola WiFi unificata"USLTSE". 
 Accesso: 
 I PC aziendali(autenticazione con codice fiscale) sono già abilitati alla navigazione WiFi 
@@ -2074,10 +1945,7 @@ Ambito: Tablet dei punti prelievi.
 Manutenzione: Se non hanno inventario, non sono in nostra manutenzione. 
 Problemi con Inpeco: Se collegati a Inpeco, far contattare l'assistenza dedicata. 
 125 AOUS- CHIAVETTE PER FIRMA DIGITALE 
-Problema: Utenti che non sanno a chi rivolgersi per avere la chiavetta per la firma digitale. 
-
-
-
+Problema: Utenti che non sanno a chi rivolgersi per avere la chiavetta per la firma digitale.
 Riferimento: Dire di rivolgersi a Luca Bernardi o Guido Fruscoloni(indicazione fornita il 28/11 
 da Maurizio Zoppi). 
 126 GENERAZIONE ETICHETTE DA DNLAB 
@@ -2125,9 +1993,6 @@ Direttive da Estar(Ghiandai, 05/03/2025):
 1. L'utente segnala il problema al referente del presidio, che contatta la ditta incaricata. 
 2. La ditta incaricata verifica la tratta dallo switch alla presa, controlla la presenza di switch 
 "not managed", e indica al referente nome armadio, nome switch e porta.  
-
-
-
 3. Il referente apre un ticket al numero verde(telefonico o per email) comunicando i dati 
 forniti dalla ditta. 
 4. L'HD2 apre un ticket e riabilita la porta, registrando in un foglio Excel nome armadio, 
@@ -2176,9 +2041,6 @@ Nome del responsabile che autorizza.
 Obbligatorio per GE4OR-GE4SE-GE4MG: Magazzino/i. 
 Obbligatorio per CEID Contabilità Economica Web: Codice fiscale di un collega con 
 medesima operatività. 
-
-
-
 Obbligatorio per GE4GC: Numero di cassa. 
 Obbligatorio per EDF: Codice fiscale di un collega con medesima operatività. 
 Procedura: 
@@ -2226,9 +2088,6 @@ Se nuovo utente, occorre sapere anche qualifica e presidio.
 Per SIENA: Se ne occupano direttamente i coordinatori del P.S. 
 139 Profilazione Piani Terapeutici WEB – PTWEB 
 Ambito: Profilazione per Piani Terapeutici WEB – PTWEB. 
-
-
-
 Informazioni da Includere: Unità Operativa, cognome, nome, codice fiscale, email, numero di 
 telefono. 
 Destinatario Richiesta/Assistenza(II livello): helpptweb@sanita.toscana.it. 
@@ -2276,10 +2135,7 @@ In AOUS:
 Profilazione: Non ce ne occupiamo noi, devono rivolgersi all'economato(int. 5164). 
 Nella SudEst: 
 Accesso: Con codice fiscale e password dedicata. 
-Reset password: Possono farlo in autonomia(ricevono mail da ita.gdo.estar@xerox.com). 
-
-
-
+Reset password: Possono farlo in autonomia(ricevono mail da ita.gdo.estar@xerox.com).
 Problemi: Possono contattare Catina Brandini. 
 144 AOUS- WEBREPARTI 
 Profilazione: Dovrebbero avere i riferimenti(mail e interni) al link presente in cartella 
@@ -2328,9 +2184,6 @@ Se chiamano perché non riescono ad accedere, prendere: Nome, Cognome, nome uten
 numero di telefono. 
 Inoltrare la richiesta di profilazione a: ict-scotte-sistemi@ao-siena.toscana.it. 
 Chiudere il ticket come"inoltrato a personale competente". 
-
-
-
 151 CREAZIONE ACCOUNT DOMINIO ESTAR 
 Ambito: Richiesta account Estar per accedere al PC senza necessità di accedere a 
 contabilità o magazzino. 
@@ -2378,9 +2231,6 @@ pulita.
 Se sul PC viene cambiata la stampante e non stampa più: Aprire una chiamata al fornitore 
 per far riconfigurare il"print agent". 
 Problemi Software: Devono essere gestiti con il doppio Ticket/Escalation Fornitore. 
-
-
-
 Form preimpostato nella sezione Escalation:"ESCALATION TRASFUSIONALE ELIOT 
 ENGINEERING". 
 Richiedente: Escalation Engineering. 
@@ -2429,9 +2279,6 @@ guasto, attaccare il PC slave e farlo ripartire. PASSARE IN OGNI CASO IL TK AL T
 Alle Scotte: La gestione dello Slave è leggermente diversa. Dopo aver chiesto all'utente di 
 accendere il PC clone, inoltrare immediatamente il ticket ai sistemisti per la gestione delle 
 porte di rete. 
-
-
-
 Se l'utente non vuole effettuare in autonomia lo switch con il PC clone, PASSARE CON 
 URGENZA IL TK AL TECNICO. 
 Problemi Software: Doppio Ticket/Escalation Fornitore"ESCALATION TRASFUSIONALE 
@@ -2480,13 +2327,7 @@ Browser: Il Cup Onit deve essere aperto da Chrome.​
 160 CUP ONIT 
 Ambito: CUP ONIT(generale) 
 Servizio Attivo: 12hx7, dalle 07:30 alle 19:30(tutti i giorni, compresi i festivi). 
-
-
-
-Contatti: 
-Numero verde: 800.057.999. 
-Post selezione 6 per UslSudEst. 
-Post selezione 7 per AOUS. 
+Contatti: Numero verde: 800.057.999. Post selezione 6 per UslSudEst. Post selezione 7 per AOUS. 
 Consiglio: Si consiglia di utilizzare la mail per aprire una segnalazione in modo che venga 
 aperto un ticket più facilmente tracciabile. 
 161 CUP ONIT- profilazioni 
@@ -2531,9 +2372,6 @@ devono usare il link sopra.​
 Problema: Utenza disattivata su Aurora in AOUS. 
 Procedura: Inoltrare richiesta di verifica profilazione a: ict-scotte-sanita@ao-siena.toscana.it. 
 CC: r.tiezzi@estar.toscana.it. 
-
-
-
 167 AOUS- AURORA- Lista pazienti non visibile 
 Problema: In Aurora si accede ma non si riesce ad aprire la lista pazienti(resta schermata 
 blu) in AOUS. 
@@ -2576,15 +2414,11 @@ Elisa De Chiara: elisa.dechiara@eng.it.
 Giorgio Scotti: Cell. 335.7030850, Email: giorgio.scotti@eng.it. 
 Nota(Letizia Tordini, 13/11): Il numero verde non è ancora attivo in fuori orario. 
 Fuori Orario(18:00-08:00 feriali, festivi): Inoltrare il ticket a areas.diag@eng.it. 
-Per AOUS: Aggiungere in CC ict-scotte-sanita@ao-siena.toscana.it. 
- 
+Per AOUS: Aggiungere in CC ict-scotte-sanita@ao-siena.toscana.it.  
 169 WINSAP SIENA(EX ASL7) 
 Ambito: Completare l'installazione di Winsap a Siena. 
 Procedura(da fare per completare l'installazione): 
 1. Sotto C: c'è la cartella Winsap3.0. 
-
-
-
 2. All'interno, andare dentro"bin" e fare click col tasto destro del mouse sul file 
 AREAS_PRINT_AGENT.bat. 
 3. Nel menù a tendina, andare su"Invia a" e poi"Desktop(crea collegamento)". 
@@ -2633,9 +2467,6 @@ Supporto Dedicato(solo per le prime due settimane, 20-31 gennaio, Lun-Ven 09:00-
 Numero dedicato: 055.3799665. 
 Nota di Magnani: 
 Copiata su C: la cartella Winsap30 con il software. 
-
-
-
 Lunedì 20 mattina Jacopo lancerà uno script per mettere in esecuzione automatica il link al 
 file corretto: c:\Winsap30\bin\AREAS_PRINT_AGENT_NOAMQ.bat. 
 Problemi Applicativi(fino al 31 gennaio, Lun-Ven 09:00-17:00): C'è l'assistenza diretta. 
@@ -2684,9 +2515,6 @@ ssp.ao-siena.toscana.it.
 Profilazione Nuovi Utenti: 
 Per medici: Richiesta autorizzazione a segrds@ao-siena.toscana.it. 
 Per infermieri: Richiesta a assinf@ao-siena.toscana.it. 
-
-
-
 Per altri: Richiesta a ict-scotte-sistemi@ao-siena.toscana.it. 
 Dati da Includere: Nome, cognome, codice fiscale, matricola, telefono, email, reparto di 
 appartenenza, data inizio contratto. 
@@ -2735,9 +2563,6 @@ Ambito: Problemi con la posta elettronica in AOUS.
 Verifiche Preliminari: 
 Verificare che l'utente sia connesso alla rete aziendale. 
 Controllare che le credenziali di accesso siano corrette. 
-
-
-
 Procedura: 
 Se l'utente non riesce ad accedere alla posta, verificare le impostazioni del client di posta. 
 Se le impostazioni sono corrette, passare il ticket al tecnico. 

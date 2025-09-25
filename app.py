@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 class Bot:
     def __init__(self):
-        # Inizializza ChromaDB (come nel tuo codice originale)
+        # Inizializza ChromaDB
         self.client = chromadb.PersistentClient(path="db")
         self.collection = self.client.get_or_create_collection(
             "documenti_toscana",
@@ -20,9 +20,8 @@ class Bot:
         self.chat_history = []
 
     def carica_documento(self, file_path):
-        """Carica documento TXT/CSV/PDF (ottimizzato per memoria limitata)"""
+        """Carica documento TXT/CSV/PDF"""
         try:
-            # Determina tipo file
             if file_path.endswith('.txt'):
                 return self._carica_txt(file_path)
             elif file_path.endswith('.csv'):
@@ -31,230 +30,176 @@ class Bot:
                 return self._carica_pdf_original(file_path)
             else:
                 raise Exception(f"Formato non supportato: {file_path}")
-
         except Exception as e:
             raise Exception(f"Errore durante il caricamento: {str(e)}")
 
     def _carica_txt(self, file_path):
-        """Carica file TXT - molto più veloce e leggero"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                contenuto = f.read()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            contenuto = f.read()
 
-            # Pulisci chunks esistenti
-            existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
-            if existing_ids:
-                self.collection.delete(ids=existing_ids)
+        existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
+        if existing_ids:
+            self.collection.delete(ids=existing_ids)
 
-            # Split in chunks SENZA Langchain - metodo manuale
-            chunks = self._split_text(contenuto, chunk_size=800, overlap=100)
+        chunks = self._split_text(contenuto, chunk_size=800, overlap=100)
 
-            # Prepara per inserimento
-            documents = []
-            metadatas = []
-            ids = []
+        documents = []
+        metadatas = []
+        ids = []
 
-            for i, chunk in enumerate(chunks):
-                if len(chunk.strip()) < 50:
-                    continue
+        for i, chunk in enumerate(chunks):
+            if len(chunk.strip()) < 50:
+                continue
+            documents.append(chunk.strip())
+            metadatas.append({
+                "source": os.path.basename(file_path),
+                "full_path": file_path,
+                "chunk_id": i,
+                "chunk_length": len(chunk),
+                "upload_date": datetime.now().isoformat(),
+                "first_words": chunk[:100]
+            })
+            ids.append(f"{os.path.basename(file_path)}_{i}")
 
-                documents.append(chunk.strip())
-                metadatas.append({
-                    "source": os.path.basename(file_path),
-                    "full_path": file_path,
-                    "chunk_id": i,
-                    "chunk_length": len(chunk),
-                    "upload_date": datetime.now().isoformat(),
-                    "first_words": chunk[:100]
-                })
-                ids.append(f"{os.path.basename(file_path)}_{i}")
-
-            # Inserimento batch ridotto
-            batch_size = 20
-            for i in range(0, len(documents), batch_size):
-                try:
-                    self.collection.add(
-                        documents=documents[i:i + batch_size],
-                        metadatas=metadatas[i:i + batch_size],
-                        ids=ids[i:i + batch_size]
-                    )
-                except Exception as e:
-                    print(f"Errore batch {i}: {e}")
-
-            return len(documents)
-
-        except Exception as e:
-            raise Exception(f"Errore TXT: {str(e)}")
-
-    def _carica_csv(self, file_path):
-        """Carica file CSV - converte in testo per ricerca"""
-        try:
-            import csv
-
-            # Pulisci chunks esistenti
-            existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
-            if existing_ids:
-                self.collection.delete(ids=existing_ids)
-
-            documents = []
-            metadatas = []
-            ids = []
-
-            with open(file_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-
-                for i, row in enumerate(reader):
-                    # Converte riga CSV in testo ricercabile
-                    testo = " | ".join([f"{k}: {v}" for k, v in row.items() if v])
-
-                    if len(testo.strip()) < 20:
-                        continue
-
-                    documents.append(testo)
-                    metadatas.append({
-                        "source": os.path.basename(file_path),
-                        "full_path": file_path,
-                        "chunk_id": i,
-                        "chunk_length": len(testo),
-                        "upload_date": datetime.now().isoformat(),
-                        "row_number": i + 1
-                    })
-                    ids.append(f"{os.path.basename(file_path)}_row_{i}")
-
-            # Inserimento batch
-            batch_size = 50  # CSV più leggero, batch maggiori
-            for i in range(0, len(documents), batch_size):
+        batch_size = 20
+        for i in range(0, len(documents), batch_size):
+            try:
                 self.collection.add(
                     documents=documents[i:i + batch_size],
                     metadatas=metadatas[i:i + batch_size],
                     ids=ids[i:i + batch_size]
                 )
+            except Exception as e:
+                print(f"Errore batch {i}: {e}")
 
-            return len(documents)
+        return len(documents)
 
-        except Exception as e:
-            raise Exception(f"Errore CSV: {str(e)}")
+    def _carica_csv(self, file_path):
+        import csv
+        existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
+        if existing_ids:
+            self.collection.delete(ids=existing_ids)
 
-    def _carica_pdf_original(self, file_path):
-        """Carica PDF SENZA Langchain - usa pypdf diretto"""
-        try:
-            # Usa pypdf direttamente
-            with open(file_path, 'rb') as f:
-                reader = pypdf.PdfReader(f)
+        documents = []
+        metadatas = []
+        ids = []
 
-                # Estrai tutto il testo
-                full_text = ""
-                for page in reader.pages:
-                    text = page.extract_text()
-                    if text:
-                        full_text += text + "\n\n"
-
-            # Pulisci chunks esistenti
-            existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
-            if existing_ids:
-                self.collection.delete(ids=existing_ids)
-
-            # Split in chunks manualmente
-            chunks = self._split_text(full_text, chunk_size=800, overlap=100)
-
-            # Prepara per inserimento
-            documents = []
-            metadatas = []
-            ids = []
-
-            for i, chunk in enumerate(chunks):
-                chunk_text = chunk.strip()
-                if len(chunk_text) < 50:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for i, row in enumerate(reader):
+                testo = " | ".join([f"{k}: {v}" for k, v in row.items() if v])
+                if len(testo.strip()) < 20:
                     continue
-
-                documents.append(chunk_text)
+                documents.append(testo)
                 metadatas.append({
                     "source": os.path.basename(file_path),
                     "full_path": file_path,
                     "chunk_id": i,
-                    "chunk_length": len(chunk_text),
+                    "chunk_length": len(testo),
                     "upload_date": datetime.now().isoformat(),
-                    "first_words": chunk_text[:100]
+                    "row_number": i + 1
                 })
-                ids.append(f"{os.path.basename(file_path)}_{i}")
+                ids.append(f"{os.path.basename(file_path)}_row_{i}")
 
-            # Inserimento batch ridotto
-            batch_size = 20
-            for i in range(0, len(documents), batch_size):
-                try:
-                    self.collection.add(
-                        documents=documents[i:i + batch_size],
-                        metadatas=metadatas[i:i + batch_size],
-                        ids=ids[i:i + batch_size]
-                    )
-                except Exception as e:
-                    print(f"Errore batch {i}: {e}")
+        batch_size = 50
+        for i in range(0, len(documents), batch_size):
+            self.collection.add(
+                documents=documents[i:i + batch_size],
+                metadatas=metadatas[i:i + batch_size],
+                ids=ids[i:i + batch_size]
+            )
 
-            return len(documents)
+        return len(documents)
 
-        except Exception as e:
-            raise Exception(f"Errore PDF: {str(e)}")
+    def _carica_pdf_original(self, file_path):
+        with open(file_path, 'rb') as f:
+            reader = pypdf.PdfReader(f)
+            full_text = ""
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    full_text += text + "\n\n"
+
+        existing_ids = self.collection.get(where={"source": os.path.basename(file_path)})["ids"]
+        if existing_ids:
+            self.collection.delete(ids=existing_ids)
+
+        chunks = self._split_text(full_text, chunk_size=800, overlap=100)
+
+        documents = []
+        metadatas = []
+        ids = []
+
+        for i, chunk in enumerate(chunks):
+            chunk_text = chunk.strip()
+            if len(chunk_text) < 50:
+                continue
+            documents.append(chunk_text)
+            metadatas.append({
+                "source": os.path.basename(file_path),
+                "full_path": file_path,
+                "chunk_id": i,
+                "chunk_length": len(chunk_text),
+                "upload_date": datetime.now().isoformat(),
+                "first_words": chunk_text[:100]
+            })
+            ids.append(f"{os.path.basename(file_path)}_{i}")
+
+        batch_size = 20
+        for i in range(0, len(documents), batch_size):
+            try:
+                self.collection.add(
+                    documents=documents[i:i + batch_size],
+                    metadatas=metadatas[i:i + batch_size],
+                    ids=ids[i:i + batch_size]
+                )
+            except Exception as e:
+                print(f"Errore batch {i}: {e}")
+
+        return len(documents)
 
     def _split_text(self, text, chunk_size=800, overlap=100):
-        """Split testo manualmente SENZA Langchain"""
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
         chunks = []
         separators = ["\n\n\n", "\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " "]
-
-        # Prova a dividere usando i separatori in ordine di preferenza
         current_chunks = [text]
 
         for separator in separators:
             new_chunks = []
-
             for chunk in current_chunks:
                 if len(chunk) <= chunk_size:
                     new_chunks.append(chunk)
                     continue
-
-                # Dividi il chunk usando il separatore corrente
                 parts = chunk.split(separator)
                 current_chunk = ""
-
                 for part in parts:
-                    if len(current_chunk + separator + part) <= chunk_size:
-                        if current_chunk:
-                            current_chunk += separator + part
-                        else:
-                            current_chunk = part
+                    candidate = (current_chunk + separator + part) if current_chunk else part
+                    if len(candidate) <= chunk_size:
+                        current_chunk = candidate
                     else:
                         if current_chunk:
                             new_chunks.append(current_chunk)
-                            # Aggiungi overlap
                             if len(current_chunk) > overlap:
                                 current_chunk = current_chunk[-overlap:] + separator + part
                             else:
                                 current_chunk = part
                         else:
-                            # Parte troppo lunga, dividila forzatamente
                             while len(part) > chunk_size:
                                 new_chunks.append(part[:chunk_size])
                                 part = part[chunk_size - overlap:]
                             current_chunk = part
-
                 if current_chunk:
                     new_chunks.append(current_chunk)
-
             current_chunks = new_chunks
-
-            # Se tutti i chunks sono della dimensione giusta, fermati
-            if all(len(chunk) <= chunk_size for chunk in current_chunks):
+            if all(len(c) <= chunk_size for c in current_chunks):
                 break
 
-        # Filtra chunks vuoti o troppo corti
-        final_chunks = [chunk.strip() for chunk in current_chunks if chunk.strip() and len(chunk.strip()) >= 50]
+        return [c.strip() for c in current_chunks if c.strip() and len(c.strip()) >= 50]
 
     def query_con_groq(self, domanda, n_results=10):
-        """Query usando Groq invece di Ollama (mantiene la tua logica di ricerca)"""
         try:
-            # RICERCA IDENTICA AL TUO CODICE
             results = self.collection.query(
                 query_texts=[domanda],
                 n_results=n_results,
@@ -268,7 +213,6 @@ class Bot:
             metadatas = results["metadatas"][0]
             distances = results["distances"][0]
 
-            # Filtra per rilevanza (identico al tuo codice)
             if distances:
                 min_distance = min(distances)
                 threshold = min_distance + 0.4
@@ -287,18 +231,14 @@ class Bot:
             if not relevant_docs:
                 return "🤔 Non ho trovato informazioni sufficientemente rilevanti. Prova a riformulare la domanda!"
 
-            # Ordina per rilevanza (identico al tuo codice)
             relevant_docs.sort(key=lambda x: x['distance'])
             top_docs = relevant_docs[:7]
-
             contesto = "\n\n---\n\n".join([doc['content'] for doc in top_docs])
 
-            # History context (identico al tuo codice)
             history_context = ""
             for turn in self.chat_history[-3:]:
                 history_context += f"UTENTE: {turn['domanda']}\nASSISTENTE: {turn['risposta']}\n\n"
 
-            # PROMPT IDENTICO AL TUO (ultra-stringente)
             prompt = f"""Ciao! 🤖 Sono il tuo assistente per la Sanità Toscana.
 Ecco la nostra conversazione recente:
 {history_context}
@@ -324,7 +264,6 @@ REGOLE FONDAMENTALI (SEGUI ALLA LETTERA):
 Ecco la mia risposta:
 """
 
-            # GROQ INVECE DI OLLAMA
             groq_api_key = os.environ.get('GROQ_API_KEY')
             if not groq_api_key:
                 return "❌ Errore: API Key Groq non configurata."
@@ -337,11 +276,12 @@ Ecco la mia risposta:
             payload = {
                 "model": "llama-3.1-8b-instant",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.1,  # Identico al tuo
-                "top_p": 0.9,  # Identico al tuo
+                "temperature": 0.1,
+                "top_p": 0.9,
                 "max_tokens": 1000
             }
 
+            # Correzione: rimuovi lo spazio extra nell'URL
             response = requests.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 headers=headers,
@@ -351,41 +291,31 @@ Ecco la mia risposta:
 
             if response.status_code == 200:
                 risposta = response.json()['choices'][0]['message']['content'].strip()
-
-                # Salva nella history (identico al tuo codice)
-                self.chat_history.append({
-                    "domanda": domanda,
-                    "risposta": risposta
-                })
+                self.chat_history.append({"domanda": domanda, "risposta": risposta})
                 if len(self.chat_history) > 10:
                     self.chat_history.pop(0)
-
                 return risposta
             else:
-                return f"❌ Errore API Groq: {response.status_code}"
+                return f"❌ Errore API Groq: {response.status_code} - {response.text}"
 
         except Exception as e:
             return f"❌ Errore durante la ricerca: {str(e)}"
 
     def get_stats(self):
-        """Statistiche database (identico al tuo codice)"""
         try:
             collection_data = self.collection.get()
             if not collection_data["ids"]:
                 return "📊 Database vuoto."
-
             total_docs = len(collection_data["ids"])
             sources = set()
             for metadata in collection_data["metadatas"]:
                 if metadata and "source" in metadata:
                     sources.add(metadata["source"])
-
             return f"📊 Database: {total_docs} chunks da {len(sources)} file(s): {', '.join(sources)}"
         except Exception as e:
             return f"❌ Errore nel recuperare le statistiche: {str(e)}"
 
     def cancella_cronologia(self):
-        """Cancella cronologia (identico al tuo)"""
         self.chat_history = []
         return "🧹 Cronologia della chat cancellata!"
 
@@ -393,7 +323,6 @@ Ecco la mia risposta:
 # Istanza globale del bot
 bot = Bot()
 
-# Template HTML migliorato per Sanità Toscana
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -507,7 +436,6 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
-    // Carica statistiche all'avvio
     window.onload = function() {
         loadStats();
     };
@@ -527,13 +455,11 @@ HTML_TEMPLATE = """
 
         if (!message) return;
 
-        // Aggiungi messaggio utente
         chat.innerHTML += '<div class="separator"></div>';
         chat.innerHTML += `<div class="message user">🙋‍♂️ TU: ${message}</div>`;
         messageInput.value = '';
         sendBtn.disabled = true;
         sendBtn.innerHTML = '⏳ Pensando...';
-
         chat.scrollTop = chat.scrollHeight;
 
         try {
@@ -542,15 +468,10 @@ HTML_TEMPLATE = """
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({message: message})
             });
-
             const data = await response.json();
-
-            // Saluti casuali come nel tuo codice originale
             const saluti = ["Ciao!", "Ehilà!", "Buongiorno!", "Salve!", "Ciao, eccomi qui! 🤖"];
             const saluto = saluti[Math.floor(Math.random() * saluti.length)];
-
             chat.innerHTML += `<div class="message bot">🤖 ${saluto} ${data.response}<br><br>Spero di esserti stato utile! 😊</div>`;
-
         } catch (error) {
             chat.innerHTML += `<div class="message bot" style="color: red;">❌ Errore: ${error.message}</div>`;
         } finally {
@@ -608,11 +529,8 @@ def chat():
         query = request.json.get('message', '').strip()
         if not query:
             return jsonify({'response': 'Per favore, scrivi una domanda.'})
-
-        # Usa la query con Groq (invece di Ollama)
         risposta = bot.query_con_groq(query)
         return jsonify({'response': risposta})
-
     except Exception as e:
         return jsonify({'response': f'❌ Errore interno: {str(e)}'})
 
@@ -642,126 +560,74 @@ def health():
 
 @app.route('/force-load')
 def force_load():
-    """Carica automaticamente TXT, CSV o PDF"""
+    target_file = "documento.txt"
     try:
-        # Cerca file supportati (priorità: TXT > CSV > PDF)
-        txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
-        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
-        pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-
-        file_to_load = None
-        if txt_files:
-            file_to_load = txt_files[0]
-        elif csv_files:
-            file_to_load = csv_files[0]
-        elif pdf_files:
-            file_to_load = pdf_files[0]
-
-        if not file_to_load:
-            return jsonify({
-                'status': 'error',
-                'message': 'Nessun file TXT, CSV o PDF trovato',
-                'files': os.listdir('.')
-            })
-
-        # Caricamento con timeout
-        import signal
-
-        def timeout_handler(signum, frame):
-            raise TimeoutError("Caricamento timeout")
-
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(25)
-
-        try:
-            chunks = bot.carica_documento(file_to_load)
-            signal.alarm(0)
-
+        if os.path.exists(target_file):
+            chunks = bot.carica_documento(target_file)
             return jsonify({
                 'status': 'success',
-                'message': f'{file_to_load} caricato con successo!',
+                'message': f'{target_file} caricato con successo!',
                 'chunks': chunks,
-                'tipo': file_to_load.split('.')[-1].upper()
+                'tipo': 'TXT'
             })
-        except TimeoutError:
-            return jsonify({
-                'status': 'timeout',
-                'message': 'Caricamento interrotto per timeout.'
-            })
-        except Exception as e:
-            signal.alarm(0)
+        else:
+            files = [f for f in os.listdir('.') if f.endswith(('.txt', '.csv', '.pdf'))]
             return jsonify({
                 'status': 'error',
-                'message': f'Errore: {str(e)}'
+                'message': f"'{target_file}' non trovato nella directory.",
+                'available_files': files,
+                'current_dir': os.getcwd()
             })
-
     except Exception as e:
         return jsonify({
             'status': 'error',
-            'message': f'Errore generale: {str(e)}'
-        })
+            'message': f'Errore durante il caricamento: {str(e)}'
+        }), 500
 
 
 @app.route('/debug')
 def debug():
-    """Endpoint per debug - mostra file nella cartella"""
     try:
         files = os.listdir('.')
         txt_files = [f for f in files if f.endswith('.txt')]
         csv_files = [f for f in files if f.endswith('.csv')]
         pdf_files = [f for f in files if f.endswith('.pdf')]
         stats = bot.get_stats()
-
         return jsonify({
             'tutti_file': files,
             'txt_trovati': txt_files,
             'csv_trovati': csv_files,
             'pdf_trovati': pdf_files,
             'statistiche_db': stats,
-            'directory_corrente': os.getcwd()
+            'directory_corrente': os.getcwd(),
+            'documento_txt_esiste': os.path.exists('documento.txt')
         })
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return jsonify({'error': str(e)}), 500
 
 
 def load_initial_pdf():
-    """Carica automaticamente TXT, CSV o PDF se presente"""
+    target_file = "documento.txt"
     try:
-        # Priorità: TXT > CSV > PDF
-        txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
-        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
-        pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
-
-        all_files = os.listdir('.')
-        print(f"🔍 File trovati: {all_files}")
-        print(f"📝 TXT: {txt_files}")
-        print(f"📊 CSV: {csv_files}")
-        print(f"📄 PDF: {pdf_files}")
-
-        file_to_load = None
-        if txt_files:
-            file_to_load = txt_files[0]
-            print(f"✅ Caricamento TXT: {file_to_load}")
-        elif csv_files:
-            file_to_load = csv_files[0]
-            print(f"✅ Caricamento CSV: {file_to_load}")
-        elif pdf_files:
-            file_to_load = pdf_files[0]
-            print(f"✅ Caricamento PDF: {file_to_load}")
-
-        if file_to_load:
-            chunks = bot.carica_documento(file_to_load)
-            print(f"🎉 {file_to_load} caricato: {chunks} chunks")
+        print("📂 Contenuto della directory:", os.listdir('.'))
+        if os.path.exists(target_file):
+            print(f"✅ Caricamento esplicito di: {target_file}")
+            chunks = bot.carica_documento(target_file)
+            print(f"🎉 {target_file} caricato con successo: {chunks} chunks")
         else:
-            print("⚠️ Nessun file TXT, CSV o PDF trovato")
-
+            print(f"❌ {target_file} NON trovato!")
+            # Fallback opzionale (puoi rimuoverlo se vuoi solo documento.txt)
+            txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
+            if txt_files:
+                fallback = txt_files[0]
+                print(f"🔄 Caricamento fallback: {fallback}")
+                chunks = bot.carica_documento(fallback)
+                print(f"✅ {fallback} caricato.")
     except Exception as e:
-        print(f"❌ Errore caricamento automatico: {e}")
+        print(f"❌ Errore nel caricamento iniziale: {e}")
 
 
 if __name__ == '__main__':
-    # Carica documento all'avvio
     load_initial_pdf()
-
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

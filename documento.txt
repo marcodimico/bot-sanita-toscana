@@ -1,4 +1,4 @@
-﻿1 AOUS- Pleiade 
+1 AOUS- Pleiade 
 Nome Applicativo/Sistema: AOUS- Pleiade 
 Categoria: Applicativo Aziendale(presunto, basato su contesto) 
 Sottocategoria: Cartella Clinica Elettronica(presunto, basato su contesto) 

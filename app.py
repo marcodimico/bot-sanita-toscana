@@ -11,7 +11,6 @@ app = Flask(__name__)
 
 class Bot:
     def __init__(self):
-        # Inizializza ChromaDB
         self.client = chromadb.PersistentClient(path="db")
         self.collection = self.client.get_or_create_collection(
             "documenti_toscana",
@@ -20,7 +19,6 @@ class Bot:
         self.chat_history = []
 
     def carica_documento(self, file_path):
-        """Carica documento TXT/CSV/PDF"""
         try:
             if file_path.endswith('.txt'):
                 return self._carica_txt(file_path)
@@ -281,7 +279,6 @@ Ecco la mia risposta:
                 "max_tokens": 1000
             }
 
-            # Correzione: rimuovi lo spazio extra nell'URL
             response = requests.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 headers=headers,
@@ -296,7 +293,7 @@ Ecco la mia risposta:
                     self.chat_history.pop(0)
                 return risposta
             else:
-                return f"❌ Errore API Groq: {response.status_code} - {response.text}"
+                return f"❌ Errore API Groq: {response.status_code}"
 
         except Exception as e:
             return f"❌ Errore durante la ricerca: {str(e)}"
@@ -320,7 +317,6 @@ Ecco la mia risposta:
         return "🧹 Cronologia della chat cancellata!"
 
 
-# Istanza globale del bot
 bot = Bot()
 
 HTML_TEMPLATE = """
@@ -606,28 +602,26 @@ def debug():
         return jsonify({'error': str(e)}), 500
 
 
-def load_initial_pdf():
-    target_file = "documento.txt"
+def load_initial_document_if_needed():
+    """Carica documento.txt SOLO se il database è vuoto (all'avvio su Render)"""
     try:
-        print("📂 Contenuto della directory:", os.listdir('.'))
-        if os.path.exists(target_file):
-            print(f"✅ Caricamento esplicito di: {target_file}")
-            chunks = bot.carica_documento(target_file)
-            print(f"🎉 {target_file} caricato con successo: {chunks} chunks")
+        print("🔍 Controllo se il database è già popolato...")
+        collection_data = bot.collection.get()
+        if not collection_data["ids"]:
+            print("📂 Database vuoto. Cerco documento.txt...")
+            if os.path.exists("documento.txt"):
+                print("✅ documento.txt trovato. Inizio caricamento...")
+                chunks = bot.carica_documento("documento.txt")
+                print(f"🎉 Caricati {chunks} chunks con successo!")
+            else:
+                print("❌ documento.txt non trovato nella cartella.")
         else:
-            print(f"❌ {target_file} NON trovato!")
-            # Fallback opzionale (puoi rimuoverlo se vuoi solo documento.txt)
-            txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
-            if txt_files:
-                fallback = txt_files[0]
-                print(f"🔄 Caricamento fallback: {fallback}")
-                chunks = bot.carica_documento(fallback)
-                print(f"✅ {fallback} caricato.")
+            print(f"✅ Database già popolato ({len(collection_data['ids'])} chunks). Salto il caricamento.")
     except Exception as e:
-        print(f"❌ Errore nel caricamento iniziale: {e}")
+        print(f"⚠️ Errore durante il caricamento iniziale: {e}")
 
 
 if __name__ == '__main__':
-    load_initial_pdf()
+    load_initial_document_if_needed()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

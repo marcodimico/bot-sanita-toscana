@@ -622,6 +622,6 @@ def load_initial_document_if_needed():
 
 
 if __name__ == '__main__':
-    load_initial_document_if_needed()
+   # load_initial_document_if_needed()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

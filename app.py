@@ -39,7 +39,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(contenuto, chunk_size=800, overlap=100)
+        chunks = self._split_text(contenuto, chunk_size=1000, overlap=200)
 
         documents = []
         metadatas = []
@@ -156,45 +156,59 @@ class Bot:
 
         return len(documents)
 
-    def _split_text(self, text, chunk_size=800, overlap=100):
+    def _split_text(self, text, chunk_size=1000, overlap=200):
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
-        chunks = []
-        separators = ["\n\n\n", "\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " "]
-        current_chunks = [text]
+        # Prova a dividere per sezioni numerate (es. "13 CUP 2.0")
+        import re
+        section_headers = re.findall(r'\n\d+\s+[A-Z]', text)
+        if section_headers:
+            # Dividi mantenendo le sezioni intere
+            sections = re.split(r'(\n\d+\s+[A-Z])', text)
+            reconstructed = []
+            for i in range(1, len(sections), 2):
+                if i + 1 < len(sections):
+                    reconstructed.append(sections[i] + sections[i + 1].lstrip())
+                else:
+                    reconstructed.append(sections[i])
+            if len(sections) % 2 == 1 and sections[-1].strip():
+                reconstructed.append(sections[-1])
 
-        for separator in separators:
-            new_chunks = []
-            for chunk in current_chunks:
-                if len(chunk) <= chunk_size:
-                    new_chunks.append(chunk)
-                    continue
-                parts = chunk.split(separator)
-                current_chunk = ""
-                for part in parts:
-                    candidate = (current_chunk + separator + part) if current_chunk else part
-                    if len(candidate) <= chunk_size:
-                        current_chunk = candidate
+            # Costruisci chunk senza spezzare sezioni
+            chunks = []
+            current = ""
+            for sec in reconstructed:
+                if len(current) + len(sec) <= chunk_size:
+                    current += sec
+                else:
+                    if current:
+                        chunks.append(current)
+                    if len(sec) > chunk_size:
+                        # Se una sezione è troppo lunga, usa chunking standard
+                        chunks.extend(self._split_text_simple(sec, chunk_size, overlap))
                     else:
-                        if current_chunk:
-                            new_chunks.append(current_chunk)
-                            if len(current_chunk) > overlap:
-                                current_chunk = current_chunk[-overlap:] + separator + part
-                            else:
-                                current_chunk = part
-                        else:
-                            while len(part) > chunk_size:
-                                new_chunks.append(part[:chunk_size])
-                                part = part[chunk_size - overlap:]
-                            current_chunk = part
-                if current_chunk:
-                    new_chunks.append(current_chunk)
-            current_chunks = new_chunks
-            if all(len(c) <= chunk_size for c in current_chunks):
-                break
+                        current = sec
+            if current:
+                chunks.append(current)
+            return [c.strip() for c in chunks if c.strip() and len(c.strip()) >= 50]
+        else:
+            # Nessuna sezione numerata: usa chunking standard
+            return self._split_text_simple(text, chunk_size, overlap)
 
-        return [c.strip() for c in current_chunks if c.strip() and len(c.strip()) >= 50]
+    def _split_text_simple(self, text, chunk_size=1000, overlap=200):
+        """Chunking semplice con overlap"""
+        if not text:
+            return []
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + chunk_size
+            chunk = text[start:end]
+            if len(chunk.strip()) >= 50:
+                chunks.append(chunk)
+            start += (chunk_size - overlap)
+        return chunks
 
     def query_con_groq(self, domanda, n_results=10):
         try:

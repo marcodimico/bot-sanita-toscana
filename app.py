@@ -17,6 +17,16 @@ class Bot:
             metadata={"hnsw:space": "cosine"}
         )
         self.chat_history = []
+        # Stato per la gestione del ticket
+        self.awaiting_ticket_field = None
+        self.ticket_data = {}
+        self.ticket_fields = [
+            "nome e cognome",
+            "reparto",
+            "ubicazione",
+            "telefono",
+            "problema"
+        ]
 
     def carica_documento(self, file_path):
         try:
@@ -122,7 +132,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(full_text, chunk_size=800, overlap=100)
+        chunks = self._split_text(full_text, chunk_size=1000, overlap=200)
 
         documents = []
         metadatas = []
@@ -160,11 +170,8 @@ class Bot:
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
-        # Prova a dividere per sezioni numerate (es. "13 CUP 2.0")
-        import re
         section_headers = re.findall(r'\n\d+\s+[A-Z]', text)
         if section_headers:
-            # Dividi mantenendo le sezioni intere
             sections = re.split(r'(\n\d+\s+[A-Z])', text)
             reconstructed = []
             for i in range(1, len(sections), 2):
@@ -175,7 +182,6 @@ class Bot:
             if len(sections) % 2 == 1 and sections[-1].strip():
                 reconstructed.append(sections[-1])
 
-            # Costruisci chunk senza spezzare sezioni
             chunks = []
             current = ""
             for sec in reconstructed:
@@ -185,7 +191,6 @@ class Bot:
                     if current:
                         chunks.append(current)
                     if len(sec) > chunk_size:
-                        # Se una sezione è troppo lunga, usa chunking standard
                         chunks.extend(self._split_text_simple(sec, chunk_size, overlap))
                     else:
                         current = sec
@@ -193,11 +198,9 @@ class Bot:
                 chunks.append(current)
             return [c.strip() for c in chunks if c.strip() and len(c.strip()) >= 50]
         else:
-            # Nessuna sezione numerata: usa chunking standard
             return self._split_text_simple(text, chunk_size, overlap)
 
     def _split_text_simple(self, text, chunk_size=1000, overlap=200):
-        """Chunking semplice con overlap"""
         if not text:
             return []
         chunks = []
@@ -241,7 +244,7 @@ class Bot:
                     })
 
             if not relevant_docs:
-                return "🤔 Non ho trovato informazioni sufficientemente rilevanti. Prova a riformulare la domanda!"
+                return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti.\n\n📧 Per assistenza personalizzata, scrivi: **Apertura ticket**"
 
             relevant_docs.sort(key=lambda x: x['distance'])
             top_docs = relevant_docs[:7]
@@ -330,6 +333,43 @@ Ecco la mia risposta:
         self.chat_history = []
         return "🧹 Cronologia della chat cancellata!"
 
+    def invia_email_ticket(self, dati_ticket):
+        """Invia un'email con i dati del ticket (opzionale)"""
+        try:
+            smtp_user = os.environ.get("SMTP_USER")
+            smtp_password = os.environ.get("SMTP_PASSWORD")
+            destinatario = os.environ.get("SUPPORT_EMAIL", "supporto.sanita@toscana.it")
+
+            if not smtp_user or not smtp_password:
+                print("📧 Email non configurata: mancano SMTP_USER o SMTP_PASSWORD")
+                return False
+
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+
+            msg = MIMEMultipart()
+            msg["From"] = smtp_user
+            msg["To"] = destinatario
+            msg["Subject"] = "🆕 Ticket aperto dal bot - Sanità Toscana"
+
+            corpo = "Un utente ha aperto un ticket tramite il bot:\n\n"
+            for campo, valore in dati_ticket.items():
+                corpo += f"{campo.capitalize()}: {valore}\n"
+
+            msg.attach(MIMEText(corpo, "plain"))
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, destinatario, msg.as_string())
+
+            print("✅ Email inviata con successo")
+            return True
+        except Exception as e:
+            print(f"❌ Errore invio email: {e}")
+            return False
+
 
 bot = Bot()
 
@@ -343,53 +383,59 @@ HTML_TEMPLATE = """
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
             padding: 20px;
         }
         .container {
-            background: white; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            background: white;
+            border: 4px solid #8A2BE2;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(138, 43, 226, 0.3);
             width: 100%; max-width: 900px; height: 85vh; display: flex; flex-direction: column;
         }
         .header {
-            background: linear-gradient(45deg, #667eea, #764ba2); color: white;
-            padding: 20px; border-radius: 20px 20px 0 0; text-align: center;
+            background: linear-gradient(45deg, #8A2BE2, #9370DB);
+            color: white;
+            padding: 20px; border-radius: 15px 15px 0 0; text-align: center;
         }
         .header h1 { font-size: 1.5em; margin-bottom: 5px; }
         .header p { font-size: 0.9em; opacity: 0.9; }
         .stats {
-            background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; margin-top: 10px;
+            background: rgba(255,255,255,0.2); padding: 10px; border-radius: 10px; margin-top: 10px;
             font-size: 0.8em; text-align: center;
         }
         #chat {
             flex: 1; padding: 20px; overflow-y: auto; scroll-behavior: smooth;
-            background: #f8f9fa; border-left: 3px solid #667eea;
+            background: #FFF8F0; border-left: 3px solid #FF8C00;
         }
         .message {
             margin: 15px 0; padding: 15px; border-radius: 15px; max-width: 85%;
             animation: slideIn 0.3s ease-out; line-height: 1.5;
         }
         .user { 
-            background: #667eea; color: white; margin-left: auto; text-align: right; 
+            background: linear-gradient(45deg, #8A2BE2, #9370DB); color: white;
+            margin-left: auto; text-align: right; 
             border-bottom-right-radius: 5px;
         }
         .bot { 
-            background: white; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: white; border: 2px solid #8A2BE2; box-shadow: 0 2px 5px rgba(138, 43, 226, 0.2);
             border-bottom-left-radius: 5px;
         }
         .input-area {
-            padding: 20px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px;
-            align-items: center; flex-wrap: wrap;
+            padding: 20px; border-top: 2px solid #8A2BE2; display: flex; gap: 10px;
+            align-items: center; flex-wrap: wrap; background: #FFF8F0;
         }
         #message {
-            flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 25px;
+            flex: 1; padding: 12px 16px; border: 2px solid #8A2BE2; border-radius: 25px;
             outline: none; font-size: 14px; transition: all 0.3s; min-width: 300px;
+            background: white;
         }
         #message:focus { 
-            border-color: #667eea; box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2); 
+            border-color: #FF8C00; box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.3); 
         }
         button {
-            background: linear-gradient(45deg, #667eea, #764ba2); color: white;
+            background: linear-gradient(45deg, #8A2BE2, #9370DB); color: white;
             border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer;
             font-weight: 600; transition: transform 0.2s; white-space: nowrap;
             font-size: 12px;
@@ -398,7 +444,7 @@ HTML_TEMPLATE = """
         button:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
         .loading { opacity: 0.7; }
         .stats-btn {
-            background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 15px;
+            background: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 15px;
             font-size: 0.8em; margin-left: 10px;
         }
         @keyframes slideIn { 
@@ -406,11 +452,11 @@ HTML_TEMPLATE = """
             to { opacity: 1; transform: translateY(0); } 
         }
         .welcome {
-            background: linear-gradient(45deg, #f8f9fa, #e9ecef); 
-            border-left: 4px solid #667eea; padding: 20px; margin: 10px 0;
+            background: linear-gradient(45deg, #FFF8F0, #FFEBCD); 
+            border-left: 4px solid #FF8C00; padding: 20px; margin: 10px 0;
             border-radius: 10px;
         }
-        .separator { border-top: 2px solid #eee; margin: 20px 0; }
+        .separator { border-top: 2px solid #8A2BE2; margin: 20px 0; opacity: 0.3; }
 
         @media (max-width: 768px) {
             .container { height: 95vh; margin: 10px; }
@@ -433,8 +479,9 @@ HTML_TEMPLATE = """
             <div class="welcome">
                 <h3>👋 Benvenuto nell'Assistente Documentale!</h3>
                 <p>Chiedimi qualsiasi cosa sui sistemi informatici, le procedure o le applicazioni aziendali della Sanità Toscana.</p>
+                <p>💡 <strong>Se alla fine della nostra conversazione non hai risolto il tuo problema, possiamo aprire direttamente un ticket.</strong><br>
+                Per farlo, scrivi semplicemente: <code>Apertura ticket</code></p>
                 <p>Sono qui per aiutarti in modo chiaro, veloce e... con un sorriso! 😊</p>
-                <p><strong>Per iniziare:</strong> digita la tua domanda qui sotto e premi INVIO.</p>
             </div>
         </div>
         <div class="input-area">
@@ -539,8 +586,47 @@ def chat():
         query = request.json.get('message', '').strip()
         if not query:
             return jsonify({'response': 'Per favore, scrivi una domanda.'})
+
+        # --- Gestione speciale: Apertura ticket ---
+        if query.lower() == "apertura ticket":
+            bot.awaiting_ticket_field = 0
+            bot.ticket_data = {}
+            first_field = bot.ticket_fields[0]
+            return jsonify({
+                'response': f"📬 Apertura ticket in corso.\nPer favore, indicami il tuo **{first_field}**:"
+            })
+
+        if bot.awaiting_ticket_field is not None:
+            current_index = bot.awaiting_ticket_field
+            field_name = bot.ticket_fields[current_index]
+            bot.ticket_data[field_name] = query
+
+            if current_index + 1 < len(bot.ticket_fields):
+                bot.awaiting_ticket_field += 1
+                next_field = bot.ticket_fields[bot.awaiting_ticket_field]
+                return jsonify({
+                    'response': f"✅ {field_name.capitalize()} registrato.\nOra, per favore, indicami: **{next_field}**"
+                })
+            else:
+                summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
+                # Invia email (se configurata)
+                bot.invia_email_ticket(bot.ticket_data)
+                bot.awaiting_ticket_field = None
+                bot.ticket_data = {}
+                return jsonify({
+                    'response': (
+                        "✅ **Ticket compilato con successo!**\n\n"
+                        "Ecco i dati che hai fornito:\n\n"
+                        f"{summary}\n\n"
+                        "📬 Il team di supporto è stato notificato via email. "
+                        "Riceverai assistenza al più presto!\n\n"
+                        "Puoi continuare a chiedermi informazioni sui documenti."
+                    )
+                })
+
         risposta = bot.query_con_groq(query)
         return jsonify({'response': risposta})
+
     except Exception as e:
         return jsonify({'response': f'❌ Errore interno: {str(e)}'})
 
@@ -616,26 +702,8 @@ def debug():
         return jsonify({'error': str(e)}), 500
 
 
-def load_initial_document_if_needed():
-    """Carica documento.txt SOLO se il database è vuoto (all'avvio su Render)"""
-    try:
-        print("🔍 Controllo se il database è già popolato...")
-        collection_data = bot.collection.get()
-        if not collection_data["ids"]:
-            print("📂 Database vuoto. Cerco documento.txt...")
-            if os.path.exists("documento.txt"):
-                print("✅ documento.txt trovato. Inizio caricamento...")
-                chunks = bot.carica_documento("documento.txt")
-                print(f"🎉 Caricati {chunks} chunks con successo!")
-            else:
-                print("❌ documento.txt non trovato nella cartella.")
-        else:
-            print(f"✅ Database già popolato ({len(collection_data['ids'])} chunks). Salto il caricamento.")
-    except Exception as e:
-        print(f"⚠️ Errore durante il caricamento iniziale: {e}")
-
-
 if __name__ == '__main__':
-   # load_initial_document_if_needed()
+    # ❌ NON caricare all'avvio su Render
+    # load_initial_document_if_needed()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

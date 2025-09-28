@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 class Bot:
     def __init__(self):
-        self.client = chromadb.PersistentClient(path="db")
+        self.client = chromadb.PersistentClient(path="db_gemini")
         self.collection = self.client.get_or_create_collection(
             "documenti_toscana",
             metadata={"hnsw:space": "cosine"}

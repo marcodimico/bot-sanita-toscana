@@ -323,7 +323,7 @@ Ecco la mia risposta:
             total_docs = len(collection_data["ids"])
             sources = set()
             for metadata in collection_data["metadatas"]:
-                if metadata and "source" in meta
+                if metadata and "source" in metadata:
                     sources.add(metadata["source"])
             return f"📊 Database: {total_docs} chunks da {len(sources)} file(s): {', '.join(sources)}"
         except Exception as e:

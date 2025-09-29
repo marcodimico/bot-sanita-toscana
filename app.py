@@ -289,7 +289,7 @@ Ecco la mia risposta:
             }
 
             payload = {
-                "model": "llama-3.1-8b-instant",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "top_p": 0.9,

@@ -5,6 +5,7 @@ import chromadb
 import pypdf
 from datetime import datetime
 import re
+import threading  # Aggiunto per invio email asincrono
 
 app = Flask(__name__)
 
@@ -17,7 +18,6 @@ class Bot:
             metadata={"hnsw:space": "cosine"}
         )
         self.chat_history = []
-        # Stato per la gestione del ticket
         self.awaiting_ticket_field = None
         self.ticket_data = {}
         self.ticket_fields = [
@@ -281,7 +281,7 @@ Ecco la mia risposta:
 
             groq_api_key = os.environ.get('GROQ_API_KEY')
             if not groq_api_key:
-                return "❌ Errore: API Key Groq non configurata."
+                return "❌ Errore: GROQ_API_KEY non configurata."
 
             headers = {
                 'Authorization': f'Bearer {groq_api_key}',
@@ -323,7 +323,7 @@ Ecco la mia risposta:
             total_docs = len(collection_data["ids"])
             sources = set()
             for metadata in collection_data["metadatas"]:
-                if metadata and "source" in metadata:
+                if metadata and "source" in meta
                     sources.add(metadata["source"])
             return f"📊 Database: {total_docs} chunks da {len(sources)} file(s): {', '.join(sources)}"
         except Exception as e:
@@ -333,42 +333,45 @@ Ecco la mia risposta:
         self.chat_history = []
         return "🧹 Cronologia della chat cancellata!"
 
-    def invia_email_ticket(self, dati_ticket):
-        """Invia un'email con i dati del ticket (opzionale)"""
-        try:
-            smtp_user = os.environ.get("SMTP_USER")
-            smtp_password = os.environ.get("SMTP_PASSWORD")
-            destinatario = os.environ.get("SUPPORT_EMAIL", "supporto.sanita@toscana.it")
+    def invia_email_ticket_async(self, dati_ticket):
+        """Invia email in background, senza bloccare la risposta"""
 
-            if not smtp_user or not smtp_password:
-                print("📧 Email non configurata: mancano SMTP_USER o SMTP_PASSWORD")
-                return False
+        def _invio():
+            try:
+                smtp_user = os.environ.get("SMTP_USER")
+                smtp_password = os.environ.get("SMTP_PASSWORD")
+                destinatario = os.environ.get("SUPPORT_EMAIL", "supporto.sanita@toscana.it")
 
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
+                if not smtp_user or not smtp_password:
+                    print("📧 Email non configurata: mancano SMTP_USER o SMTP_PASSWORD")
+                    return
 
-            msg = MIMEMultipart()
-            msg["From"] = smtp_user
-            msg["To"] = destinatario
-            msg["Subject"] = "🆕 Ticket aperto dal bot - Sanità Toscana"
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
 
-            corpo = "Un utente ha aperto un ticket tramite il bot:\n\n"
-            for campo, valore in dati_ticket.items():
-                corpo += f"{campo.capitalize()}: {valore}\n"
+                msg = MIMEMultipart()
+                msg["From"] = smtp_user
+                msg["To"] = destinatario
+                msg["Subject"] = "🆕 Ticket aperto dal bot - Sanità Toscana"
 
-            msg.attach(MIMEText(corpo, "plain"))
+                corpo = "Un utente ha aperto un ticket tramite il bot:\n\n"
+                for campo, valore in dati_ticket.items():
+                    corpo += f"{campo.capitalize()}: {valore}\n"
 
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, destinatario, msg.as_string())
+                msg.attach(MIMEText(corpo, "plain"))
 
-            print("✅ Email inviata con successo")
-            return True
-        except Exception as e:
-            print(f"❌ Errore invio email: {e}")
-            return False
+                with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_password)
+                    server.sendmail(smtp_user, destinatario, msg.as_string())
+                print("✅ Email inviata con successo")
+            except Exception as e:
+                print(f"❌ Errore invio email in background: {e}")
+
+        thread = threading.Thread(target=_invio)
+        thread.daemon = True
+        thread.start()
 
 
 bot = Bot()
@@ -587,7 +590,6 @@ def chat():
         if not query:
             return jsonify({'response': 'Per favore, scrivi una domanda.'})
 
-        # --- Gestione speciale: Apertura ticket ---
         if query.lower() == "apertura ticket":
             bot.awaiting_ticket_field = 0
             bot.ticket_data = {}
@@ -609,12 +611,8 @@ def chat():
                 })
             else:
                 summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
-                # ✅ Invio email con gestione errori
-                try:
-                    bot.invia_email_ticket(bot.ticket_data)
-                except Exception as e:
-                    print(f"📧 Errore invio email (ma il ticket è comunque salvato): {e}")
-                    # Non bloccare la risposta se l'email fallisce
+                # ✅ Invio asincrono: non blocca la risposta
+                bot.invia_email_ticket_async(bot.ticket_data)
                 bot.awaiting_ticket_field = None
                 bot.ticket_data = {}
                 return jsonify({
@@ -632,7 +630,6 @@ def chat():
         return jsonify({'response': risposta})
 
     except Exception as e:
-        # ✅ Questo cattura TUTTI gli errori, inclusi quelli dell'email
         print(f"🚨 Errore critico in /chat: {e}")
         return jsonify({'response': f"❌ Errore imprevisto: {str(e)}"}), 500
 
@@ -709,7 +706,5 @@ def debug():
 
 
 if __name__ == '__main__':
-    # ❌ NON caricare all'avvio su Render
-    # load_initial_document_if_needed()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

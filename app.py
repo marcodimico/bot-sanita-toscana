@@ -609,8 +609,12 @@ def chat():
                 })
             else:
                 summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
-                # Invia email (se configurata)
-                bot.invia_email_ticket(bot.ticket_data)
+                # ✅ Invio email con gestione errori
+                try:
+                    bot.invia_email_ticket(bot.ticket_data)
+                except Exception as e:
+                    print(f"📧 Errore invio email (ma il ticket è comunque salvato): {e}")
+                    # Non bloccare la risposta se l'email fallisce
                 bot.awaiting_ticket_field = None
                 bot.ticket_data = {}
                 return jsonify({
@@ -628,7 +632,9 @@ def chat():
         return jsonify({'response': risposta})
 
     except Exception as e:
-        return jsonify({'response': f'❌ Errore interno: {str(e)}'})
+        # ✅ Questo cattura TUTTI gli errori, inclusi quelli dell'email
+        print(f"🚨 Errore critico in /chat: {e}")
+        return jsonify({'response': f"❌ Errore imprevisto: {str(e)}"}), 500
 
 
 @app.route('/stats')

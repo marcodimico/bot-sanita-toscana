@@ -334,40 +334,48 @@ Ecco la mia risposta:
         return "🧹 Cronologia della chat cancellata!"
 
     def invia_email_ticket_async(self, dati_ticket):
-        """Invia email in background, senza bloccare la risposta"""
+        """Invia email tramite SendGrid in background"""
 
         def _invio():
             try:
-                smtp_user = os.environ.get("SMTP_USER")
-                smtp_password = os.environ.get("SMTP_PASSWORD")
-                destinatario = os.environ.get("SUPPORT_EMAIL", "supporto.sanita@toscana.it")
+                sendgrid_api_key = os.environ.get("SENDGRID_API_KEY")
+                mittente = os.environ.get("SENDGRID_FROM_EMAIL", "marco.dimico@gmail.com")
+                destinatario = os.environ.get("SUPPORT_EMAIL", "toscanaticket@gmail.com")
 
-                if not smtp_user or not smtp_password:
-                    print("📧 Email non configurata: mancano SMTP_USER o SMTP_PASSWORD")
+                if not sendgrid_api_key:
+                    print("📧 SENDGRID_API_KEY non configurata")
                     return
 
-                import smtplib
-                from email.mime.text import MIMEText
-                from email.mime.multipart import MIMEMultipart
-
-                msg = MIMEMultipart()
-                msg["From"] = smtp_user
-                msg["To"] = destinatario
-                msg["Subject"] = "🆕 Ticket aperto dal bot - Sanità Toscana"
-
+                import httpx
                 corpo = "Un utente ha aperto un ticket tramite il bot:\n\n"
                 for campo, valore in dati_ticket.items():
                     corpo += f"{campo.capitalize()}: {valore}\n"
 
-                msg.attach(MIMEText(corpo, "plain"))
+                data = {
+                    "personalizations": [{
+                        "to": [{"email": destinatario}],
+                        "reply_to": {"email": "toscanaticket@gmail.com"}
+                    }],
+                    "from": {"email": mittente, "name": "Bot Sanità Toscana"},
+                    "subject": "🆕 Ticket aperto dal bot - Sanità Toscana",
+                    "content": [{"type": "text/plain", "value": corpo}]
+                }
 
-                with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_password)
-                    server.sendmail(smtp_user, destinatario, msg.as_string())
-                print("✅ Email inviata con successo")
+                response = httpx.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {sendgrid_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json=data,
+                    timeout=10
+                )
+                if response.status_code == 202:
+                    print("✅ Email inviata con successo via SendGrid")
+                else:
+                    print(f"❌ Errore SendGrid: {response.status_code} - {response.text}")
             except Exception as e:
-                print(f"❌ Errore invio email in background: {e}")
+                print(f"❌ Errore invio email SendGrid: {e}")
 
         thread = threading.Thread(target=_invio)
         thread.daemon = True

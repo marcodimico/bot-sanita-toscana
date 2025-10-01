@@ -294,7 +294,7 @@ Ecco la mia risposta:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "top_p": 0.9,
-                "max_tokens": 1000
+                "max_tokens": 512  # ← riduci da 1000 a 512
             }
 
             response = requests.post(

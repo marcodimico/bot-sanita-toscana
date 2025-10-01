@@ -49,7 +49,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(contenuto, chunk_size=1000, overlap=200)
+        chunks = self._split_text(contenuto, chunk_size=500, overlap=100)
 
         documents = []
         metadatas = []
@@ -132,7 +132,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(full_text, chunk_size=1000, overlap=200)
+        chunks = self._split_text(full_text, chunk_size=500, overlap=100)
 
         documents = []
         metadatas = []
@@ -200,7 +200,8 @@ class Bot:
         else:
             return self._split_text_simple(text, chunk_size, overlap)
 
-    def _split_text_simple(self, text, chunk_size=1000, overlap=200):
+    def _split_text_simple(self, text, chunk_size=500, overlap=100):
+        """Chunking semplice con overlap"""
         if not text:
             return []
         chunks = []
@@ -289,7 +290,7 @@ Ecco la mia risposta:
             }
 
             payload = {
-                "model": "llama-3.1-8b-instant",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "top_p": 0.9,

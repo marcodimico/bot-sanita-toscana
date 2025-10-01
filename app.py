@@ -5,7 +5,7 @@ import chromadb
 import pypdf
 from datetime import datetime
 import re
-import threading  # Aggiunto per invio email asincrono
+import threading
 
 app = Flask(__name__)
 
@@ -166,7 +166,7 @@ class Bot:
 
         return len(documents)
 
-    def _split_text(self, text, chunk_size=1000, overlap=200):
+    def _split_text(self, text, chunk_size=500, overlap=100):
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
@@ -201,7 +201,6 @@ class Bot:
             return self._split_text_simple(text, chunk_size, overlap)
 
     def _split_text_simple(self, text, chunk_size=500, overlap=100):
-        """Chunking semplice con overlap"""
         if not text:
             return []
         chunks = []
@@ -248,8 +247,15 @@ class Bot:
                 return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti.\n\n📧 Per assistenza personalizzata, scrivi: **Apertura ticket**"
 
             relevant_docs.sort(key=lambda x: x['distance'])
-            top_docs = relevant_docs[:7]
-            contesto = "\n\n---\n\n".join([doc['content'] for doc in top_docs])
+            top_docs = relevant_docs[:3]  # Limitato a 3 per evitare overflow
+
+            # Sanitizza il testo per evitare errori 400
+            def sanitize_text(text):
+                import re
+                text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', ' ', text)
+                return text.replace('*', '•')
+
+            contesto = "\n\n---\n\n".join([sanitize_text(doc['content']) for doc in top_docs])
 
             history_context = ""
             for turn in self.chat_history[-3:]:
@@ -294,9 +300,10 @@ Ecco la mia risposta:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "top_p": 0.9,
-                "max_tokens": 512  # ← riduci da 1000 a 512
+                "max_tokens": 512
             }
 
+            # URL CORRETTO SENZA SPAZI
             response = requests.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 headers=headers,
@@ -362,6 +369,7 @@ Ecco la mia risposta:
                     "content": [{"type": "text/plain", "value": corpo}]
                 }
 
+                # URL CORRETTO SENZA SPAZI
                 response = httpx.post(
                     "https://api.sendgrid.com/v3/mail/send",
                     headers={
@@ -620,7 +628,6 @@ def chat():
                 })
             else:
                 summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
-                # ✅ Invio asincrono: non blocca la risposta
                 bot.invia_email_ticket_async(bot.ticket_data)
                 bot.awaiting_ticket_field = None
                 bot.ticket_data = {}

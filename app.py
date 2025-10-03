@@ -5,7 +5,7 @@ import chromadb
 import pypdf
 from datetime import datetime
 import re
-import threading
+import threading  # Aggiunto per invio email asincrono
 
 app = Flask(__name__)
 
@@ -49,7 +49,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(contenuto, chunk_size=500, overlap=100)
+        chunks = self._split_text(contenuto, chunk_size=1000, overlap=200)
 
         documents = []
         metadatas = []
@@ -132,7 +132,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(full_text, chunk_size=500, overlap=100)
+        chunks = self._split_text(full_text, chunk_size=1000, overlap=200)
 
         documents = []
         metadatas = []
@@ -166,7 +166,7 @@ class Bot:
 
         return len(documents)
 
-    def _split_text(self, text, chunk_size=500, overlap=100):
+    def _split_text(self, text, chunk_size=1000, overlap=200):
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
@@ -200,7 +200,7 @@ class Bot:
         else:
             return self._split_text_simple(text, chunk_size, overlap)
 
-    def _split_text_simple(self, text, chunk_size=500, overlap=100):
+    def _split_text_simple(self, text, chunk_size=1000, overlap=200):
         if not text:
             return []
         chunks = []
@@ -247,48 +247,37 @@ class Bot:
                 return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti.\n\n📧 Per assistenza personalizzata, scrivi: **Apertura ticket**"
 
             relevant_docs.sort(key=lambda x: x['distance'])
-            top_docs = relevant_docs[:3]
-
-            def sanitize_text(text):
-                import re
-                text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', ' ', text)
-                text = re.sub(r'http://[a-zA-Z0-9._-]+(?![a-zA-Z0-9])', 'URL_INTERNO', text)
-                text = text.replace('{', '(').replace('}', ')')
-                text = text.replace('*', '•')
-                text = text.replace('\r', ' ').replace('\n', ' ')
-                text = re.sub(r'\s+', ' ', text)
-                return text.strip()
-
-            contesto = "\n\n---\n\n".join([sanitize_text(doc['content']) for doc in top_docs])
+            top_docs = relevant_docs[:7]
+            contesto = "\n\n---\n\n".join([doc['content'] for doc in top_docs])
 
             history_context = ""
             for turn in self.chat_history[-3:]:
                 history_context += f"UTENTE: {turn['domanda']}\nASSISTENTE: {turn['risposta']}\n\n"
 
             prompt = f"""Ciao! 🤖 Sono il tuo assistente per la Sanità Toscana.
-    Ecco la nostra conversazione recente:
-    {history_context}
-    Basandomi SOLO sulle informazioni NEI DOCUMENTI QUI SOTTO, ti risponderò in modo chiaro, preciso e amichevole.
+Ecco la nostra conversazione recente:
+{history_context}
+Basandomi SOLO sulle informazioni NEI DOCUMENTI QUI SOTTO, ti risponderò in modo chiaro, preciso e amichevole.
 
-    DOMANDA: {domanda}
+DOMANDA: {domanda}
 
-    DOCUMENTI RILEVANTI:
-    {contesto}
+DOCUMENTI RILEVANTI:
+{contesto}
 
-    REGOLE FONDAMENTALI (SEGUI ALLA LETTERA):
-    1. RISPONDI SOLO CON LE INFORMAZIONI PRESENTI NEI DOCUMENTI SOPRA. NON INVENTARE NULLA.
-    2. LEGGI ATTENTAMENTE TUTTO IL TESTO DEI DOCUMENTI. NON FERMARTI ALLA PRIMA RIGA.
-    3. SE LA RISPOSTA È NEL DOCUMENTO, COPIALA TAL QUALE, PAROLA PER PAROLA, SENZA MODIFICHE, OMISSIONI O RISCRITTURE.
-    4. ELENCA SEMPRE TUTTE LE INFORMAZIONI RICHIESTE. NON OMETTERE NULLA, NEANCHE DETTAGLI CHE SEMBRANO MINORI (ES. TELEFONO, CODICI, NOTE).
-    5. SE NON TROVI LA RISPOSTA, DILLO CHIARAMENTE: "Non ho trovato questa informazione nei documenti."
-    6. CITA SEMPRE la fonte (es. "Secondo il documento X, sezione Y...").
-    7. Usa elenchi puntati se serve per chiarezza.
-    8. Mantieni un tono amichevole ma professionale.
-    9. SE LA DOMANDA RIGUARDA "CUP 2.0", CERCA ESPLICITAMENTE LA SEZIONE "13. CUP 2.0" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
-    10. SE LA DOMANDA RIGUARDA "CIS CARDIOLOGIA", CERCA ESPLICITAMENTE LA SEZIONE "14. CIS CARDIOLOGIA" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
+REGOLE FONDAMENTALI (SEGUI ALLA LETTERA):
+1. RISPONDI SOLO CON LE INFORMAZIONI PRESENTI NEI DOCUMENTI SOPRA. NON INVENTARE NULLA.
+2. LEGGI ATTENTAMENTE TUTTO IL TESTO DEI DOCUMENTI. NON FERMARTI ALLA PRIMA RIGA.
+3. SE LA RISPOSTA È NEL DOCUMENTO, COPIALA TAL QUALE, PAROLA PER PAROLA, SENZA MODIFICHE, OMISSIONI O RISCRITTURE.
+4. ELENCA SEMPRE TUTTE LE INFORMAZIONI RICHIESTE. NON OMETTERE NULLA, NEANCHE DETTAGLI CHE SEMBRANO MINORI (ES. TELEFONO, CODICI, NOTE).
+5. SE NON TROVI LA RISPOSTA, DILLO CHIARAMENTE: "Non ho trovato questa informazione nei documenti."
+6. CITA SEMPRE la fonte (es. "Secondo il documento X, sezione Y...").
+7. Usa elenchi puntati se serve per chiarezza.
+8. Mantieni un tono amichevole ma professionale.
+9. SE LA DOMANDA RIGUARDA "CUP 2.0", CERCA ESPLICITAMENTE LA SEZIONE "13. CUP 2.0" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
+10. SE LA DOMANDA RIGUARDA "CIS CARDIOLOGIA", CERCA ESPLICITAMENTE LA SEZIONE "14. CIS CARDIOLOGIA" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
 
-    Ecco la mia risposta:
-    """
+Ecco la mia risposta:
+"""
 
             groq_api_key = os.environ.get('GROQ_API_KEY')
             if not groq_api_key:
@@ -300,11 +289,11 @@ class Bot:
             }
 
             payload = {
-                "model": "llama-3.3-70b-versatile",  # ✅ AGGIORNATO A 3.3
+                "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "top_p": 0.9,
-                "max_tokens": 512
+                "max_tokens": 1000
             }
 
             response = requests.post(
@@ -372,7 +361,6 @@ class Bot:
                     "content": [{"type": "text/plain", "value": corpo}]
                 }
 
-                # URL CORRETTO SENZA SPAZI
                 response = httpx.post(
                     "https://api.sendgrid.com/v3/mail/send",
                     headers={
@@ -631,6 +619,7 @@ def chat():
                 })
             else:
                 summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
+                # ✅ Invio asincrono: non blocca la risposta
                 bot.invia_email_ticket_async(bot.ticket_data)
                 bot.awaiting_ticket_field = None
                 bot.ticket_data = {}

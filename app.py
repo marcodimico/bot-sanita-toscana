@@ -252,8 +252,15 @@ class Bot:
             # Sanitizza il testo per evitare errori 400
             def sanitize_text(text):
                 import re
+                # Rimuove caratteri di controllo
                 text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', ' ', text)
-                return text.replace('*', '•')
+                # Sostituisce caratteri problematici per JSON/API
+                text = text.replace('{', '(').replace('}', ')')
+                text = text.replace('*', '•')
+                text = text.replace('\r', ' ').replace('\n', ' ')
+                # Rimuove spazi multipli
+                text = re.sub(r'\s+', ' ', text)
+                return text.strip()
 
             contesto = "\n\n---\n\n".join([sanitize_text(doc['content']) for doc in top_docs])
 

@@ -51,7 +51,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(contenuto, chunk_size=1000, overlap=200)
+        chunks = self._split_text(contenuto, chunk_size=800, overlap=150)
 
         documents = []
         metadatas = []
@@ -134,7 +134,7 @@ class Bot:
         if existing_ids:
             self.collection.delete(ids=existing_ids)
 
-        chunks = self._split_text(full_text, chunk_size=1000, overlap=200)
+        chunks = self._split_text(full_text, chunk_size=800, overlap=150)
 
         documents = []
         metadatas = []
@@ -168,7 +168,7 @@ class Bot:
 
         return len(documents)
 
-    def _split_text(self, text, chunk_size=1000, overlap=200):
+    def _split_text(self, text, chunk_size=800, overlap=150):
         if not text or len(text) < chunk_size:
             return [text] if text else []
 
@@ -202,7 +202,7 @@ class Bot:
         else:
             return self._split_text_simple(text, chunk_size, overlap)
 
-    def _split_text_simple(self, text, chunk_size=1000, overlap=200):
+    def _split_text_simple(self, text, chunk_size=800, overlap=150):
         if not text:
             return []
         chunks = []
@@ -228,48 +228,36 @@ class Bot:
 
         return len(intersection) / len(union) if union else 0
 
-    def enhanced_search(self, domanda, n_results=15):
-        """Ricerca avanzata con multiple query strategies"""
+    def enhanced_search(self, domanda, n_results=8):
+        """Ricerca focalizzata sulla precisione"""
 
-        # Strategy 1: Query originale
+        # Strategy 1: Query esatta
         results1 = self.collection.query(
             query_texts=[domanda],
             n_results=n_results,
             include=["documents", "metadatas", "distances"]
         )
 
-        # Strategy 2: Query semplificata
-        simplified_query = re.sub(r'[^\w\s]', '', domanda).strip()
-        if simplified_query != domanda:
+        # Strategy 2: Ricerca per frasi chiave (più conservativa)
+        parole_significative = [p for p in domanda.split() if len(p) > 4]
+        query_keywords = ' '.join(parole_significative[:3])  # Solo 3 parole più lunghe
+
+        if query_keywords:
             results2 = self.collection.query(
-                query_texts=[simplified_query],
-                n_results=max(5, n_results // 2),
+                query_texts=[query_keywords],
+                n_results=max(3, n_results // 3),
                 include=["documents", "metadatas", "distances"]
             )
         else:
             results2 = {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-        # Strategy 3: Query per parole chiave
-        keywords = ' '.join([word for word in domanda.split() if len(word) > 3][:5])
-        if keywords:
-            results3 = self.collection.query(
-                query_texts=[keywords],
-                n_results=max(3, n_results // 3),
-                include=["documents", "metadatas", "distances"]
-            )
-        else:
-            results3 = {"documents": [[]], "metadatas": [[]], "distances": [[]]}
-
-        # Combina e ordina i risultati
+        # Combina eliminando duplicati
         all_docs = []
 
         # Aggiungi da results1
         if results1["documents"][0]:
-            for i, (doc, metadata, distance) in enumerate(zip(
-                    results1["documents"][0],
-                    results1["metadatas"][0],
-                    results1["distances"][0]
-            )):
+            for doc, metadata, distance in zip(results1["documents"][0], results1["metadatas"][0],
+                                               results1["distances"][0]):
                 all_docs.append({
                     'content': doc,
                     'metadata': metadata,
@@ -277,34 +265,12 @@ class Bot:
                     'source': 'primary'
                 })
 
-        # Aggiungi da results2 (evitando duplicati)
+        # Aggiungi da results2 solo se molto diversi
         if results2["documents"][0]:
-            for i, (doc, metadata, distance) in enumerate(zip(
-                    results2["documents"][0],
-                    results2["metadatas"][0],
-                    results2["distances"][0]
-            )):
+            for doc, metadata, distance in zip(results2["documents"][0], results2["metadatas"][0],
+                                               results2["distances"][0]):
                 is_duplicate = any(
-                    self._similar_content(existing['content'], doc) > 0.8
-                    for existing in all_docs
-                )
-                if not is_duplicate:
-                    all_docs.append({
-                        'content': doc,
-                        'metadata': metadata,
-                        'distance': distance,
-                        'source': 'simplified'
-                    })
-
-        # Aggiungi da results3 (evitando duplicati)
-        if results3["documents"][0]:
-            for i, (doc, metadata, distance) in enumerate(zip(
-                    results3["documents"][0],
-                    results3["metadatas"][0],
-                    results3["distances"][0]
-            )):
-                is_duplicate = any(
-                    self._similar_content(existing['content'], doc) > 0.8
+                    self._similar_content(existing['content'], doc) > 0.7
                     for existing in all_docs
                 )
                 if not is_duplicate:
@@ -315,30 +281,28 @@ class Bot:
                         'source': 'keywords'
                     })
 
-        # Ordina per distanza
+        # Ordina per distanza e prendi i migliori
         all_docs.sort(key=lambda x: x['distance'])
         return all_docs[:n_results]
 
-    def validate_response(self, response, domanda, contesto_utilizzato):
-        """Valida se la risposta è basata sui documenti"""
+    def validate_response_enhanced(self, response, domanda, contesto):
+        """Validazione ultra-conservativa"""
 
         validation_prompt = f"""
-        ANALISI DI VERIFICA RISPOSTA
+        ANALISI CRITICA - VERIFICA RISPOSTA
 
         DOMANDA: {domanda}
+        RISPOSTA: {response}
+        CONTESTO: {contesto[:1500]}
 
-        RISPOSTA DATA: {response}
+        Verifica OGGETTIVAMENTE:
+        1. ✅ Ogni affermazione nella risposta è COPIA ESATTA dal contesto
+        2. ✅ Non ci sono informazioni aggiunte non presenti nel contesto  
+        3. ✅ Non ci sono inferenze o collegamenti non espliciti
+        4. ✅ La risposta non usa conoscenza esterna
 
-        CONTESTO DISPONIBILE: {contesto_utilizzato[:2000]}
-
-        Verifica se:
-        1. ✅ La risposta è DIRETTAMENTE supportata dal contesto
-        2. ✅ Non sono stati inventati fatti
-        3. ✅ Tutte le affermazioni hanno riscontro nei documenti
-        4. ✅ La risposta affronta completamente la domanda
-
-        Se QUALSIASI punto non è soddisfatto, rispondi con "NON_VALIDA"
-        Se tutti i punti sono soddisfatti, rispondi con "VALIDA"
+        Se QUALSIASI dubbio su uno di questi punti: "NON_VALIDA"
+        Solo se TUTTO è verificabile: "VALIDA"
 
         Risposta:
         """
@@ -346,7 +310,7 @@ class Bot:
         try:
             groq_api_key = os.environ.get('GROQ_API_KEY')
             if not groq_api_key:
-                return True  # Fallback se API key non disponibile
+                return True  # Fallback
 
             headers = {
                 'Authorization': f'Bearer {groq_api_key}',
@@ -357,23 +321,53 @@ class Bot:
                 "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": validation_prompt}],
                 "temperature": 0.1,
-                "max_tokens": 100
+                "max_tokens": 50
             }
 
             response_val = requests.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 headers=headers,
                 json=payload,
-                timeout=15
+                timeout=10
             )
 
             if response_val.status_code == 200:
                 result = response_val.json()['choices'][0]['message']['content'].strip()
                 return "VALIDA" in result.upper()
-            return True  # Fallback a True in caso di errore
+            return False
 
         except Exception:
-            return True  # Fallback a True in caso di errore
+            return False
+
+    def get_fallback_response(self, domanda, documenti):
+        """Risposta di fallback ultra-conservativa"""
+
+        if not documenti:
+            return "🤔 Nei documenti disponibili non trovo informazioni su questo argomento."
+
+        # Costruisci risposta basata solo su citazioni esatte
+        citazioni = []
+        for doc in documenti[:3]:  # Solo primi 3 documenti
+            source = doc['metadata'].get('source', 'documento')
+            # Estrai frasi rilevanti (semplificato)
+            contenuto = doc['content']
+            # Cerca parole chiave della domanda
+            parole_chiave = [p for p in domanda.lower().split() if len(p) > 3]
+            frasi_rilevanti = []
+
+            for frase in contenuto.split('.'):
+                if any(p in frase.lower() for p in parole_chiave):
+                    frasi_rilevanti.append(frase.strip() + '.')
+                    if len(frasi_rilevanti) >= 2:  # Massimo 2 frasi per documento
+                        break
+
+            if frasi_rilevanti:
+                citazioni.append(f"**Da {source}**: {' '.join(frasi_rilevanti[:2])}")
+
+        if citazioni:
+            return "📄 Ho trovato queste informazioni nei documenti:\n\n" + "\n\n".join(citazioni)
+        else:
+            return "🤔 Nei documenti non trovo informazioni specifiche sulla tua domanda."
 
     def log_interaction(self, domanda, risposta, documenti_utilizzati, confidence):
         """Log dettagliato per analisi"""
@@ -422,65 +416,60 @@ class Bot:
         confidence = (distance_score * 0.6 + count_score * 0.3 + length_score * 0.1)
         return round(confidence, 2)
 
-    def query_con_groq(self, domanda, n_results=10):
+    def query_con_groq(self, domanda, n_results=5):
         try:
-            # Usa la ricerca avanzata
+            # Ricerca avanzata
             relevant_docs = self.enhanced_search(domanda, n_results=n_results)
 
             if not relevant_docs:
-                return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti.\n\n📧 Per assistenza personalizzata, scrivi: **Apertura ticket**"
+                return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti."
 
             # Calcola confidence score
             confidence = self.calculate_confidence(relevant_docs)
 
             # Prendi i documenti migliori
-            top_docs = relevant_docs[:7]
-            contesto = "\n\n---\n\n".join([doc['content'] for doc in top_docs])
+            top_docs = relevant_docs[:3]  # Solo 3 documenti per massima precisione
+            contesto = "\n\n--- DOCUMENTO ---\n\n".join([doc['content'] for doc in top_docs])
 
-            history_context = ""
-            for turn in self.chat_history[-3:]:
-                history_context += f"UTENTE: {turn['domanda']}\nASSISTENTE: {turn['risposta']}\n\n"
+            # PROMPT MOLTO PIÙ STRINGENTE
+            prompt = f"""# ISTRUZIONI ASSOLUTE - MODALITÀ PRECISA COME NOTEBOOKLM
 
-            # NUOVO PROMPT MIGLIORATO
-            prompt = f"""# ISTRUZIONI ASSOLUTE PER L'ASSISTENTE DOCUMENTALE
-
-## CONTESTO DELLA CONVERSAZIONE:
-{history_context}
-
-## DOMANDA DELL'UTENTE:
-{domanda}
-
-## DOCUMENTI RILEVANTI TROVATI:
+## CONTESTO DOCUMENTALE (FONTE DELLA VERITÀ):
 {contesto}
 
-## REGOLE DI COMPORTAMENTO - SEGUIRE ALLA LETTERA:
+## DOMANDA UTENTE:
+{domanda}
 
-### 1. PRECISIONE NELLA RISPOSTA
-- CERCA **ESATTAMENTE** le informazioni richieste nella domanda
-- Se trovi informazioni **PARZIALMENTE CORRELATE** ma non esattamente quello che chiede l'utente, AMMETTILO
-- **NON FARE ASSUNZIONI** se le informazioni non sono esplicitamente nei documenti
+## REGOLE DI COMPORTAMENTO - OBBLIGATORIE:
 
-### 2. METODO DI RICERCA
-- Leggi **TUTTO** il contenuto di ogni documento prima di rispondere
-- Controlla **MULTIPLE OCCORRENZE** della stessa informazione
-- Confronta le informazioni tra documenti diversi per verificare consistenza
+### 1. **PRECISIONE ASSOLUTA**
+- RISPOSTA SOLO SE L'INFORMAZIONE È **ESPLICITAMENTE** NEI DOCUMENTI
+- **NON FARE INFERENZE** di alcun tipo
+- **NON COMBINARE** informazioni da documenti diversi
+- **NON COMPLETARE** informazioni mancanti
 
-### 3. QUALITÀ DELLA RISPOSTA
-- **COPIA TESTUALMENTE** le frasi esatte dai documenti quando possibile
-- Indica **DOVE** hai trovato ogni informazione (nome file, sezione)
-- Se ci sono informazioni contrastanti, **RIporta TUTTE** e segnala il conflitto
+### 2. **METODO DI RICERCA**
+- Cerca **PAROLA PER PAROLA** nella domanda
+- Verifica **TUTTE LE OCCORRENZE** rilevanti
+- Confronta solo se stesso documento ha informazioni multiple
 
-### 4. GESTIONE DELL'INCERTEZZA
-- Se la risposta non è completa al 100%, **AMMETTI I LIMITI**
-- Suggerisci all'utente di riformulare se la domanda è ambigua
-- **NON INVENTARE** dettagli mancanti
+### 3. **FORMATO RISPOSTA**
+- **CITA TESTUALMENTE** dal documento
+- Indica **ESATTAMENTE DOVE** (nome file e contesto)
+- Se informazioni incomplete: **"Secondo il documento X, [citazione esatta]"**
+- **NON SINTETIZZARE** mai
 
-### 5. FORMATTAZIONE
-- Usa **ELENCHI PUNTATI** per informazioni multiple
-- **GRASSETTO** per i concetti chiave
-- **CITAZIONI** per testo copiato direttamente
+### 4. **GESTIONE CASI LIMITE**
+- Se informazioni insufficienti: **"Nei documenti disponibili non trovo informazioni complete su..."**
+- Se informazioni contrastanti: **"Il documento X dice A, mentre lo stesso documento Y dice B"**
+- Se domanda troppo vaga: **"La domanda è troppo generica. Puoi specificare...?"**
 
-## RISPOSTA:
+### 5. **ZERO INVENZIONI**
+- **NON USARE** conoscenza pregressa
+- **NON FARE** esempi non presenti nei documenti
+- **NON SPIEGARE** concetti non esplicitati
+
+## RISPOSTA (SOLO BASATA SUI DOCUMENTI SOPRA):
 """
 
             groq_api_key = os.environ.get('GROQ_API_KEY')
@@ -492,16 +481,16 @@ class Bot:
                 'Content-Type': 'application/json'
             }
 
-            # PARAMETRI API OTTIMIZZATI
+            # PARAMETRI API ULTRA-CONSERVATIVI
             payload = {
                 "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.1,
-                "top_p": 0.85,
-                "max_tokens": 1200,
-                "frequency_penalty": 0.2,
-                "presence_penalty": 0.1,
-                "stop": ["\n\n", "---"]
+                "temperature": 0.01,  # Quasi zero creatività
+                "top_p": 0.1,
+                "max_tokens": 800,
+                "frequency_penalty": 0.5,
+                "presence_penalty": 0.3,
+                "stop": ["\n\nNote:", "\n\nDisclaimer:"]
             }
 
             response = requests.post(
@@ -514,15 +503,13 @@ class Bot:
             if response.status_code == 200:
                 risposta = response.json()['choices'][0]['message']['content'].strip()
 
-                # VALIDAZIONE DELLA RISPOSTA
-                is_valid = self.validate_response(risposta, domanda, contesto)
+                # Validazione rinforzata
+                if not self.validate_response_enhanced(risposta, domanda, contesto):
+                    risposta = self.get_fallback_response(domanda, top_docs)
 
-                if not is_valid:
-                    risposta = f"⚠️ **Nota importante**: Ho trovato informazioni correlate ma non esattamente quello che cercavi.\n\n{risposta}\n\n📝 *Suggerimento: Prova a riformulare la domanda per essere più specifico.*"
-
-                # Aggiungi confidence indicator
-                if confidence < 0.5:
-                    risposta = f"📊 *Confidenza: {confidence * 100}% - Risposta da verificare*\n\n{risposta}"
+                # Aggiungi confidence indicator solo se bassa
+                if confidence < 0.6:
+                    risposta = f"📊 *Confidenza: {confidence * 100}% - Informazioni limitate*\n\n{risposta}"
 
                 # Log dell'interazione
                 self.log_interaction(domanda, risposta, top_docs, confidence)
@@ -704,21 +691,26 @@ HTML_TEMPLATE = """
     <div class="container">
         <div class="header">
             <h1>🤖 Assistente Documentale Sanità Toscana</h1>
-            <p>Powered by ChromaDB + Groq API</p>
+            <p>Powered by ChromaDB + Groq API - Modalità PRECISA</p>
             <div class="stats" id="stats">Caricamento statistiche...</div>
             <button class="stats-btn" onclick="loadStats()">📊 Aggiorna</button>
         </div>
         <div id="chat">
             <div class="welcome">
-                <h3>👋 Benvenuto nell'Assistente Documentale!</h3>
-                <p>Chiedimi qualsiasi cosa sui sistemi informatici, le procedure o le applicazioni aziendali della Sanità Toscana.</p>
-                <p>💡 <strong>Se alla fine della nostra conversazione non hai risolto il tuo problema, possiamo aprire direttamente un ticket.</strong><br>
-                Per farlo, scrivi semplicemente: <code>Apertura ticket</code></p>
-                <p>Sono qui per aiutarti in modo chiaro, veloce e... con un sorriso! 😊</p>
+                <h3>🎯 Assistente in Modalità PRECISA</h3>
+                <p>Risponderò <strong>SOLO</strong> con informazioni esplicitamente presenti nei documenti.</p>
+                <p>🔍 <strong>Caratteristiche:</strong></p>
+                <ul>
+                    <li>✅ Solo citazioni esatte dai documenti</li>
+                    <li>✅ Zero invenzioni o inferenze</li>
+                    <li>✅ Indicazione precisa delle fonti</li>
+                    <li>✅ Risposte verificabili</li>
+                </ul>
+                <p>💡 <strong>Se hai bisogno di aprire un ticket</strong>, scrivi: <code>Apertura ticket</code></p>
             </div>
         </div>
         <div class="input-area">
-            <input type="text" id="message" placeholder="💬 Fai una domanda sui documenti..." onkeypress="handleEnter(event)">
+            <input type="text" id="message" placeholder="💬 Fai una domanda precisa sui documenti..." onkeypress="handleEnter(event)">
             <button id="sendBtn" onclick="sendMessage()">🚀 Invia</button>
             <button onclick="clearChat()">🧹 Pulisci</button>
             <button onclick="clearHistory()">🗑️ Cronologia</button>
@@ -749,7 +741,7 @@ HTML_TEMPLATE = """
         chat.innerHTML += `<div class="message user">🙋‍♂️ TU: ${message}</div>`;
         messageInput.value = '';
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '⏳ Pensando...';
+        sendBtn.innerHTML = '⏳ Ricercando...';
         chat.scrollTop = chat.scrollHeight;
 
         try {
@@ -759,9 +751,7 @@ HTML_TEMPLATE = """
                 body: JSON.stringify({message: message})
             });
             const data = await response.json();
-            const saluti = ["Ciao!", "Ehilà!", "Buongiorno!", "Salve!", "Ciao, eccomi qui! 🤖"];
-            const saluto = saluti[Math.floor(Math.random() * saluti.length)];
-            chat.innerHTML += `<div class="message bot">🤖 ${saluto} ${data.response}</div>`;
+            chat.innerHTML += `<div class="message bot">🤖 ${data.response}</div>`;
         } catch (error) {
             chat.innerHTML += `<div class="message bot" style="color: red;">❌ Errore: ${error.message}</div>`;
         } finally {
@@ -785,8 +775,9 @@ HTML_TEMPLATE = """
         const chat = document.getElementById('chat');
         chat.innerHTML = `
             <div class="welcome">
-                <h3>👋 Chat pulita!</h3>
-                <p>Puoi iniziare una nuova conversazione.</p>
+                <h3>🎯 Assistente in Modalità PRECISA</h3>
+                <p>Risponderò <strong>SOLO</strong> con informazioni esplicitamente presenti nei documenti.</p>
+                <p>Chat pulita! Puoi iniziare una nuova conversazione.</p>
             </div>
         `;
     }

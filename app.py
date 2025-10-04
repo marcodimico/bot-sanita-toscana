@@ -5,7 +5,9 @@ import chromadb
 import pypdf
 from datetime import datetime
 import re
-import threading  # Aggiunto per invio email asincrono
+import threading
+import json
+import time
 
 app = Flask(__name__)
 
@@ -213,40 +215,225 @@ class Bot:
             start += (chunk_size - overlap)
         return chunks
 
-    def query_con_groq(self, domanda, n_results=10):
-        try:
-            results = self.collection.query(
-                query_texts=[domanda],
-                n_results=n_results,
+    def _similar_content(self, text1, text2):
+        """Calcola similarità approssimativa tra due testi"""
+        words1 = set(text1.lower().split()[:20])
+        words2 = set(text2.lower().split()[:20])
+
+        if not words1 or not words2:
+            return 0
+
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+
+        return len(intersection) / len(union) if union else 0
+
+    def enhanced_search(self, domanda, n_results=15):
+        """Ricerca avanzata con multiple query strategies"""
+
+        # Strategy 1: Query originale
+        results1 = self.collection.query(
+            query_texts=[domanda],
+            n_results=n_results,
+            include=["documents", "metadatas", "distances"]
+        )
+
+        # Strategy 2: Query semplificata
+        simplified_query = re.sub(r'[^\w\s]', '', domanda).strip()
+        if simplified_query != domanda:
+            results2 = self.collection.query(
+                query_texts=[simplified_query],
+                n_results=max(5, n_results // 2),
                 include=["documents", "metadatas", "distances"]
             )
+        else:
+            results2 = {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-            if not results["documents"] or not results["documents"][0]:
-                return "🔍 Nessun documento trovato nel database."
+        # Strategy 3: Query per parole chiave
+        keywords = ' '.join([word for word in domanda.split() if len(word) > 3][:5])
+        if keywords:
+            results3 = self.collection.query(
+                query_texts=[keywords],
+                n_results=max(3, n_results // 3),
+                include=["documents", "metadatas", "distances"]
+            )
+        else:
+            results3 = {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-            documents = results["documents"][0]
-            metadatas = results["metadatas"][0]
-            distances = results["distances"][0]
+        # Combina e ordina i risultati
+        all_docs = []
 
-            if distances:
-                min_distance = min(distances)
-                threshold = min_distance + 0.4
-            else:
-                threshold = 1.5
+        # Aggiungi da results1
+        if results1["documents"][0]:
+            for i, (doc, metadata, distance) in enumerate(zip(
+                    results1["documents"][0],
+                    results1["metadatas"][0],
+                    results1["distances"][0]
+            )):
+                all_docs.append({
+                    'content': doc,
+                    'metadata': metadata,
+                    'distance': distance,
+                    'source': 'primary'
+                })
 
-            relevant_docs = []
-            for i, (doc, distance) in enumerate(zip(documents, distances)):
-                if distance <= threshold and len(doc.strip()) > 50:
-                    relevant_docs.append({
+        # Aggiungi da results2 (evitando duplicati)
+        if results2["documents"][0]:
+            for i, (doc, metadata, distance) in enumerate(zip(
+                    results2["documents"][0],
+                    results2["metadatas"][0],
+                    results2["distances"][0]
+            )):
+                is_duplicate = any(
+                    self._similar_content(existing['content'], doc) > 0.8
+                    for existing in all_docs
+                )
+                if not is_duplicate:
+                    all_docs.append({
                         'content': doc,
-                        'metadata': metadatas[i],
-                        'distance': distance
+                        'metadata': metadata,
+                        'distance': distance,
+                        'source': 'simplified'
                     })
+
+        # Aggiungi da results3 (evitando duplicati)
+        if results3["documents"][0]:
+            for i, (doc, metadata, distance) in enumerate(zip(
+                    results3["documents"][0],
+                    results3["metadatas"][0],
+                    results3["distances"][0]
+            )):
+                is_duplicate = any(
+                    self._similar_content(existing['content'], doc) > 0.8
+                    for existing in all_docs
+                )
+                if not is_duplicate:
+                    all_docs.append({
+                        'content': doc,
+                        'metadata': metadata,
+                        'distance': distance,
+                        'source': 'keywords'
+                    })
+
+        # Ordina per distanza
+        all_docs.sort(key=lambda x: x['distance'])
+        return all_docs[:n_results]
+
+    def validate_response(self, response, domanda, contesto_utilizzato):
+        """Valida se la risposta è basata sui documenti"""
+
+        validation_prompt = f"""
+        ANALISI DI VERIFICA RISPOSTA
+
+        DOMANDA: {domanda}
+
+        RISPOSTA DATA: {response}
+
+        CONTESTO DISPONIBILE: {contesto_utilizzato[:2000]}
+
+        Verifica se:
+        1. ✅ La risposta è DIRETTAMENTE supportata dal contesto
+        2. ✅ Non sono stati inventati fatti
+        3. ✅ Tutte le affermazioni hanno riscontro nei documenti
+        4. ✅ La risposta affronta completamente la domanda
+
+        Se QUALSIASI punto non è soddisfatto, rispondi con "NON_VALIDA"
+        Se tutti i punti sono soddisfatti, rispondi con "VALIDA"
+
+        Risposta:
+        """
+
+        try:
+            groq_api_key = os.environ.get('GROQ_API_KEY')
+            if not groq_api_key:
+                return True  # Fallback se API key non disponibile
+
+            headers = {
+                'Authorization': f'Bearer {groq_api_key}',
+                'Content-Type': 'application/json'
+            }
+
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": validation_prompt}],
+                "temperature": 0.1,
+                "max_tokens": 100
+            }
+
+            response_val = requests.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers=headers,
+                json=payload,
+                timeout=15
+            )
+
+            if response_val.status_code == 200:
+                result = response_val.json()['choices'][0]['message']['content'].strip()
+                return "VALIDA" in result.upper()
+            return True  # Fallback a True in caso di errore
+
+        except Exception:
+            return True  # Fallback a True in caso di errore
+
+    def log_interaction(self, domanda, risposta, documenti_utilizzati, confidence):
+        """Log dettagliato per analisi"""
+
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'domanda': domanda,
+            'risposta': risposta[:500],
+            'documenti_count': len(documenti_utilizzati),
+            'confidence': confidence,
+            'documenti_utilizzati': [
+                {
+                    'source': doc['metadata'].get('source', 'unknown'),
+                    'first_words': doc['content'][:100],
+                    'distance': doc['distance']
+                } for doc in documenti_utilizzati
+            ]
+        }
+
+        # Salva in file JSON
+        try:
+            with open('interaction_log.jsonl', 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
+        except Exception as e:
+            print(f"Errore nel logging: {e}")
+
+    def calculate_confidence(self, documenti_utilizzati):
+        """Calcola punteggio di confidenza basato sulla qualità dei documenti"""
+        if not documenti_utilizzati:
+            return 0.0
+
+        # Media delle distanze (più bassa = migliore)
+        avg_distance = sum(doc['distance'] for doc in documenti_utilizzati) / len(documenti_utilizzati)
+
+        # Numero di documenti
+        doc_count = len(documenti_utilizzati)
+
+        # Lunghezza media dei documenti
+        avg_length = sum(len(doc['content']) for doc in documenti_utilizzati) / len(documenti_utilizzati)
+
+        # Calcola confidence score
+        distance_score = max(0, 1 - avg_distance)  # 1 per distanza 0, 0 per distanza >=1
+        count_score = min(1.0, doc_count / 5)  # Massimo 1.0 per 5+ documenti
+        length_score = min(1.0, avg_length / 500)  # Bonus per documenti lunghi
+
+        confidence = (distance_score * 0.6 + count_score * 0.3 + length_score * 0.1)
+        return round(confidence, 2)
+
+    def query_con_groq(self, domanda, n_results=10):
+        try:
+            # Usa la ricerca avanzata
+            relevant_docs = self.enhanced_search(domanda, n_results=n_results)
 
             if not relevant_docs:
                 return "🤔 Non ho trovato informazioni sufficientemente rilevanti nei documenti.\n\n📧 Per assistenza personalizzata, scrivi: **Apertura ticket**"
 
-            relevant_docs.sort(key=lambda x: x['distance'])
+            # Calcola confidence score
+            confidence = self.calculate_confidence(relevant_docs)
+
+            # Prendi i documenti migliori
             top_docs = relevant_docs[:7]
             contesto = "\n\n---\n\n".join([doc['content'] for doc in top_docs])
 
@@ -254,29 +441,46 @@ class Bot:
             for turn in self.chat_history[-3:]:
                 history_context += f"UTENTE: {turn['domanda']}\nASSISTENTE: {turn['risposta']}\n\n"
 
-            prompt = f"""Ciao! 🤖 Sono il tuo assistente per la Sanità Toscana.
-Ecco la nostra conversazione recente:
+            # NUOVO PROMPT MIGLIORATO
+            prompt = f"""# ISTRUZIONI ASSOLUTE PER L'ASSISTENTE DOCUMENTALE
+
+## CONTESTO DELLA CONVERSAZIONE:
 {history_context}
-Basandomi SOLO sulle informazioni NEI DOCUMENTI QUI SOTTO, ti risponderò in modo chiaro, preciso e amichevole.
 
-DOMANDA: {domanda}
+## DOMANDA DELL'UTENTE:
+{domanda}
 
-DOCUMENTI RILEVANTI:
+## DOCUMENTI RILEVANTI TROVATI:
 {contesto}
 
-REGOLE FONDAMENTALI (SEGUI ALLA LETTERA):
-1. RISPONDI SOLO CON LE INFORMAZIONI PRESENTI NEI DOCUMENTI SOPRA. NON INVENTARE NULLA.
-2. LEGGI ATTENTAMENTE TUTTO IL TESTO DEI DOCUMENTI. NON FERMARTI ALLA PRIMA RIGA.
-3. SE LA RISPOSTA È NEL DOCUMENTO, COPIALA TAL QUALE, PAROLA PER PAROLA, SENZA MODIFICHE, OMISSIONI O RISCRITTURE.
-4. ELENCA SEMPRE TUTTE LE INFORMAZIONI RICHIESTE. NON OMETTERE NULLA, NEANCHE DETTAGLI CHE SEMBRANO MINORI (ES. TELEFONO, CODICI, NOTE).
-5. SE NON TROVI LA RISPOSTA, DILLO CHIARAMENTE: "Non ho trovato questa informazione nei documenti."
-6. CITA SEMPRE la fonte (es. "Secondo il documento X, sezione Y...").
-7. Usa elenchi puntati se serve per chiarezza.
-8. Mantieni un tono amichevole ma professionale.
-9. SE LA DOMANDA RIGUARDA "CUP 2.0", CERCA ESPLICITAMENTE LA SEZIONE "13. CUP 2.0" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
-10. SE LA DOMANDA RIGUARDA "CIS CARDIOLOGIA", CERCA ESPLICITAMENTE LA SEZIONE "14. CIS CARDIOLOGIA" E COPIA TUTTO IL CONTENUTO DI QUELLA SEZIONE CHE RISPONDE ALLA DOMANDA.
+## REGOLE DI COMPORTAMENTO - SEGUIRE ALLA LETTERA:
 
-Ecco la mia risposta:
+### 1. PRECISIONE NELLA RISPOSTA
+- CERCA **ESATTAMENTE** le informazioni richieste nella domanda
+- Se trovi informazioni **PARZIALMENTE CORRELATE** ma non esattamente quello che chiede l'utente, AMMETTILO
+- **NON FARE ASSUNZIONI** se le informazioni non sono esplicitamente nei documenti
+
+### 2. METODO DI RICERCA
+- Leggi **TUTTO** il contenuto di ogni documento prima di rispondere
+- Controlla **MULTIPLE OCCORRENZE** della stessa informazione
+- Confronta le informazioni tra documenti diversi per verificare consistenza
+
+### 3. QUALITÀ DELLA RISPOSTA
+- **COPIA TESTUALMENTE** le frasi esatte dai documenti quando possibile
+- Indica **DOVE** hai trovato ogni informazione (nome file, sezione)
+- Se ci sono informazioni contrastanti, **RIporta TUTTE** e segnala il conflitto
+
+### 4. GESTIONE DELL'INCERTEZZA
+- Se la risposta non è completa al 100%, **AMMETTI I LIMITI**
+- Suggerisci all'utente di riformulare se la domanda è ambigua
+- **NON INVENTARE** dettagli mancanti
+
+### 5. FORMATTAZIONE
+- Usa **ELENCHI PUNTATI** per informazioni multiple
+- **GRASSETTO** per i concetti chiave
+- **CITAZIONI** per testo copiato direttamente
+
+## RISPOSTA:
 """
 
             groq_api_key = os.environ.get('GROQ_API_KEY')
@@ -288,12 +492,16 @@ Ecco la mia risposta:
                 'Content-Type': 'application/json'
             }
 
+            # PARAMETRI API OTTIMIZZATI
             payload = {
                 "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
-                "top_p": 0.9,
-                "max_tokens": 1000
+                "top_p": 0.85,
+                "max_tokens": 1200,
+                "frequency_penalty": 0.2,
+                "presence_penalty": 0.1,
+                "stop": ["\n\n", "---"]
             }
 
             response = requests.post(
@@ -305,6 +513,20 @@ Ecco la mia risposta:
 
             if response.status_code == 200:
                 risposta = response.json()['choices'][0]['message']['content'].strip()
+
+                # VALIDAZIONE DELLA RISPOSTA
+                is_valid = self.validate_response(risposta, domanda, contesto)
+
+                if not is_valid:
+                    risposta = f"⚠️ **Nota importante**: Ho trovato informazioni correlate ma non esattamente quello che cercavi.\n\n{risposta}\n\n📝 *Suggerimento: Prova a riformulare la domanda per essere più specifico.*"
+
+                # Aggiungi confidence indicator
+                if confidence < 0.5:
+                    risposta = f"📊 *Confidenza: {confidence * 100}% - Risposta da verificare*\n\n{risposta}"
+
+                # Log dell'interazione
+                self.log_interaction(domanda, risposta, top_docs, confidence)
+
                 self.chat_history.append({"domanda": domanda, "risposta": risposta})
                 if len(self.chat_history) > 10:
                     self.chat_history.pop(0)
@@ -539,7 +761,7 @@ HTML_TEMPLATE = """
             const data = await response.json();
             const saluti = ["Ciao!", "Ehilà!", "Buongiorno!", "Salve!", "Ciao, eccomi qui! 🤖"];
             const saluto = saluti[Math.floor(Math.random() * saluti.length)];
-            chat.innerHTML += `<div class="message bot">🤖 ${saluto} ${data.response}<br><br>Spero di esserti stato utile! 😊</div>`;
+            chat.innerHTML += `<div class="message bot">🤖 ${saluto} ${data.response}</div>`;
         } catch (error) {
             chat.innerHTML += `<div class="message bot" style="color: red;">❌ Errore: ${error.message}</div>`;
         } finally {
@@ -619,7 +841,6 @@ def chat():
                 })
             else:
                 summary = "\n".join([f"• **{k.capitalize()}**: {v}" for k, v in bot.ticket_data.items()])
-                # ✅ Invio asincrono: non blocca la risposta
                 bot.invia_email_ticket_async(bot.ticket_data)
                 bot.awaiting_ticket_field = None
                 bot.ticket_data = {}
